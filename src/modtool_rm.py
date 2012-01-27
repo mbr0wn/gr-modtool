@@ -33,16 +33,16 @@ class ModToolRemove(ModTool):
     def setup(self):
         ModTool.setup(self)
         options = self.options
-
         if options.pattern is not None:
             self._info['pattern'] = options.pattern
+        elif options.block_name is not None:
+            self._info['pattern'] = options.block_name
+        elif len(self.args) >= 2:
+            self._info['pattern'] = self.args[1]
         else:
-            if options.block_name is not None:
-                self._info['pattern'] = options.block_name
-            else:
-                self._info['pattern'] = raw_input('Which blocks do you want to delete? (Regex): ')
-                if len(self._info['pattern']) == 0:
-                    self._info['pattern'] = '.'
+            self._info['pattern'] = raw_input('Which blocks do you want to delete? (Regex): ')
+        if len(self._info['pattern']) == 0:
+            self._info['pattern'] = '.'
         self._info['yes'] = options.yes
 
     def run(self):
@@ -129,6 +129,5 @@ class ModToolRemove(ModTool):
                 cmakeedit_func(b, ed)
         ed.write()
         return files_deleted
-
 
 

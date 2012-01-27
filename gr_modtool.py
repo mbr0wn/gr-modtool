@@ -680,8 +680,13 @@ class ModToolAdd(ModTool):
             sys.exit(1)
 
         if self._info['blockname'] is None:
-            self._info['blockname'] = raw_input("Enter name of block/code (without module name prefix): ")
-        # TODO sanitize
+            if len(self.args) >= 2:
+                self._info['blockname'] = self.args[1]
+            else:
+                self._info['blockname'] = raw_input("Enter name of block/code (without module name prefix): ")
+        if not re.match('[a-zA-Z0-9_]+', self._info['blockname']):
+            print 'Invalid block name.'
+            sys.exit(2)
         print "Block/code identifier: " + self._info['blockname']
 
         self._info['prefix'] = self._info['modname']
@@ -891,21 +896,23 @@ class ModToolRemove(ModTool):
     def setup(self):
         ModTool.setup(self)
         options = self.options
-
         if options.pattern is not None:
             self._info['pattern'] = options.pattern
+        elif options.block_name is not None:
+            self._info['pattern'] = options.block_name
+        elif len(self.args) >= 2:
+            self._info['pattern'] = self.args[1]
         else:
-            if options.block_name is not None:
-                self._info['pattern'] = options.block_name
-            else:
-                self._info['pattern'] = raw_input('Which blocks do you want to delete? (Regex): ')
-                if len(self._info['pattern']) == 0:
-                    self._info['pattern'] = '.'
+            self._info['pattern'] = raw_input('Which blocks do you want to delete? (Regex): ')
+        if len(self._info['pattern']) == 0:
+            self._info['pattern'] = '.'
         self._info['yes'] = options.yes
 
     def run(self):
         """ Go, go, go! """
         def _remove_cc_test_case(filename=None, ed=None):
+            """ Special function that removes the occurrences of a qa*.cc file
+            from the CMakeLists.txt. """
             if filename[:2] != 'qa':
                 return
             filebase = os.path.splitext(filename)[0]
@@ -985,7 +992,6 @@ class ModToolRemove(ModTool):
                 cmakeedit_func(b, ed)
         ed.write()
         return files_deleted
-
 
 
 ### The entire new module zipfile as base64 encoded tar.bz2  ###
@@ -2199,7 +2205,10 @@ class ModToolNewModule(ModTool):
         (options, self.args) = self.parser.parse_args()
         self._info['modname'] = options.module_name
         if self._info['modname'] is None:
-            self._info['modname'] = raw_input('Name of the new module: ')
+            if len(self.args) >= 2:
+                self._info['modname'] = self.args[1]
+            else:
+                self._info['modname'] = raw_input('Name of the new module: ')
         if not re.match('[a-zA-Z0-9_]+', self._info['modname']):
             print 'Invalid module name.'
             sys.exit(2)
