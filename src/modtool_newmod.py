@@ -3,10 +3,12 @@
 import os
 import re
 import sys
-import distutils
+import base64
+import tarfile
 from optparse import OptionGroup
 
 from modtool_base import ModTool
+from newmod_tarfile import NEWMOD_TARFILE
 
 ### New out-of-tree-mod module ###############################################
 class ModToolNewModule(ModTool):
@@ -19,33 +21,23 @@ class ModToolNewModule(ModTool):
     def setup_parser(self):
         " Initialise the option parser for 'gr_modtool.py newmod' "
         parser = ModTool.setup_parser(self)
-        parser.usage = '%prog rm [options]. \n Call %prog without any options to run it interactively.'
-        ogroup = OptionGroup(parser, "New out-of-tree module options")
-        ogroup.add_option("-D", "--source-dir", type="string", default=None,
-                help="Source directory of the howto example.")
-        ogroup.add_option("-l", "--source-dir", type="string", default=None,
-                help="Source directory of the howto example.")
-        parser.add_option_group(ogroup)
+        #parser.usage = '%prog rm [options]. \n Call %prog without any options to run it interactively.'
+        #ogroup = OptionGroup(parser, "New out-of-tree module options")
+        #parser.add_option_group(ogroup)
         return parser
 
     def setup(self):
-        def _check_src_dir(srcdir):
-            # FIXME Check for correct CMakeLists.txt
-            pass
         (options, self.args) = self.parser.parse_args()
-        if options.source_dir is None:
-            self._info['src_dir'] = raw_input('Source directory of the howto example: ')
-            if not _check_src_dir(self._info['src_dir']):
-                print "Invalid source directory."
-                sys.exit(2)
-        if options.block_name is None:
-            self._info['src_dir'] = raw_input('Name of the new module: ')
-            if not re.match('[a-zA-Z0-9_]+', self._info['modname']):
-                print 'Invalid module name.'
-                sys.exit(2)
+        self._info['modname'] = options.module_name
+        if self._info['modname'] is None:
+            self._info['modname'] = raw_input('Name of the new module: ')
+        if not re.match('[a-zA-Z0-9_]+', self._info['modname']):
+            print 'Invalid module name.'
+            sys.exit(2)
         self._dir = options.directory
-        if self._dir is None:
+        if self._dir == '.':
             self._dir = './gr-%s' % self._info['modname']
+        print 'Module directory is "%s".' % self._dir
         try:
             os.stat(self._dir)
         except OSError:
@@ -56,12 +48,36 @@ class ModToolNewModule(ModTool):
 
     def run(self):
         """ Go, go, go! """
+        print "Creating directory..."
+        try:
+            os.mkdir(self._dir)
+            os.chdir(self._dir)
+        except OSError:
+            print 'Could not create directory %s. Quitting.' % self._dir
+            sys.exit(2)
         print "Copying howto example..."
-        distutils.dir_util.copy_tree(self._info['src_dir'], self._dir)
-        # Remove stuff
-        # Set module name in main CMakeLists.txt
-        # Are there howtos left? Then replace these
-
-
+        open('tmp.tar.bz2', 'wb').write(base64.b64decode(NEWMOD_TARFILE))
+        print "Unpacking..."
+        tar = tarfile.open('tmp.tar.bz2', mode='r:bz2')
+        tar.extractall()
+        tar.close()
+        os.unlink('tmp.tar.bz2')
+        print "Replacing occurences of 'howto' to '%s'..." % self._info['modname']
+        skip_dir_re = re.compile('^..cmake|^..apps|^..grc|doxyxml')
+        for root, dirs, files in os.walk('.'):
+            if skip_dir_re.search(root):
+                print 'Skipping %s' % root
+                continue
+            for filename in files:
+                f = os.path.join(root, filename)
+                s = open(f, 'r').read()
+                s = s.replace('howto', self._info['modname'])
+                s = s.replace('HOWTO', self._info['modname'].upper())
+                open(f, 'w').write(s)
+                if filename[0:5] == 'howto':
+                    newfilename = filename.replace('howto', self._info['modname'])
+                    os.rename(f, os.path.join(root, newfilename))
+        print "Done."
+        print "Use 'gr_modtool add' to add a new block to this currently empty module."
 
 
