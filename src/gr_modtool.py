@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+""" A tool for editing GNU Radio out-of-tree modules. """
 
 import sys
 from templates import Templates

@@ -63,8 +63,13 @@ class ModToolAdd(ModTool):
             sys.exit(1)
 
         if self._info['blockname'] is None:
-            self._info['blockname'] = raw_input("Enter name of block/code (without module name prefix): ")
-        # TODO sanitize
+            if len(self.args) >= 2:
+                self._info['blockname'] = self.args[1]
+            else:
+                self._info['blockname'] = raw_input("Enter name of block/code (without module name prefix): ")
+        if not re.match('[a-zA-Z0-9_]+', self._info['blockname']):
+            print 'Invalid block name.'
+            sys.exit(2)
         print "Block/code identifier: " + self._info['blockname']
 
         self._info['prefix'] = self._info['modname']

@@ -48,6 +48,8 @@ class ModToolRemove(ModTool):
     def run(self):
         """ Go, go, go! """
         def _remove_cc_test_case(filename=None, ed=None):
+            """ Special function that removes the occurrences of a qa*.cc file
+            from the CMakeLists.txt. """
             if filename[:2] != 'qa':
                 return
             filebase = os.path.splitext(filename)[0]

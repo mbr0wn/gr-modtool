@@ -29,7 +29,10 @@ class ModToolNewModule(ModTool):
         (options, self.args) = self.parser.parse_args()
         self._info['modname'] = options.module_name
         if self._info['modname'] is None:
-            self._info['modname'] = raw_input('Name of the new module: ')
+            if len(self.args) >= 2:
+                self._info['modname'] = self.args[1]
+            else:
+                self._info['modname'] = raw_input('Name of the new module: ')
         if not re.match('[a-zA-Z0-9_]+', self._info['modname']):
             print 'Invalid module name.'
             sys.exit(2)
