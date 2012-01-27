@@ -68,7 +68,6 @@ class ModToolNewModule(ModTool):
         skip_dir_re = re.compile('^..cmake|^..apps|^..grc|doxyxml')
         for root, dirs, files in os.walk('.'):
             if skip_dir_re.search(root):
-                print 'Skipping %s' % root
                 continue
             for filename in files:
                 f = os.path.join(root, filename)
