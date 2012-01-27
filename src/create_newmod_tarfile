@@ -1,0 +1,3 @@
+#!/bin/sh
+cd gr-newmod
+tar jc * | base64 | sed -e '1s/^/### The entire new module zipfile as base64 encoded tar.bz2  ###\nNEWMOD_TARFILE = """/' -e '$s/$/"""/' > ../newmod_tarfile.py
