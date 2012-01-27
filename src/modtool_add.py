@@ -2,6 +2,7 @@
 
 import os
 import sys
+import re
 from optparse import OptionGroup
 from string import Template
 
@@ -187,14 +188,26 @@ class ModToolAdd(ModTool):
         if fname_mainswig is None:
             print 'Warning: No main swig file found.'
             return
-        print "Editing %s/%s..." % ('swig', fname_mainswig)
-        append_re_line_sequence(os.path.join('swig', fname_mainswig),
-                '^#include.*\n', '#include "%s.h"' % self._info['fullblockname'])
-        append_re_line_sequence(os.path.join('swig', fname_mainswig),
-                '^GR_SWIG_BLOCK_MAGIC\(.*?\);\s*?\%include.*\s*',
-                'GR_SWIG_BLOCK_MAGIC(%s,%s);\n%%include "%s"\n' % (self._info['modname'],
-                                                                   self._info['blockname'],
-                                                                   self._info['fullblockname'] + '.h'))
+        fname_mainswig = os.path.join('swig', fname_mainswig)
+        print "Editing %s..." % fname_mainswig
+        swig_block_magic_str = 'GR_SWIG_BLOCK_MAGIC(%s,%s);\n%%include "%s"\n' % (
+                                   self._info['modname'],
+                                   self._info['blockname'],
+                                   self._info['fullblockname'] + '.h')
+        if re.search('#include', open(fname_mainswig, 'r').read()):
+            append_re_line_sequence(fname_mainswig, '^#include.*\n',
+                    '#include "%s.h"' % self._info['fullblockname'])
+            append_re_line_sequence(fname_mainswig,
+                                    '^GR_SWIG_BLOCK_MAGIC\(.*?\);\s*?\%include.*\s*',
+                                    swig_block_magic_str)
+        else: # I.e., if the swig file is empty
+            oldfile = open(fname_mainswig, 'r').read()
+            oldfile = re.sub('^%\{\n', '%%{\n#include "%s.h"\n' % self._info['fullblockname'],
+                           oldfile, count=1, flags=re.MULTILINE)
+            oldfile = re.sub('^%\}\n', '%}\n\n' + swig_block_magic_str,
+                           oldfile, count=1, flags=re.MULTILINE)
+            open(fname_mainswig, 'w').write(oldfile)
+
 
     def _run_python_qa(self):
         """ Do everything that needs doing in the subdir 'python' to add

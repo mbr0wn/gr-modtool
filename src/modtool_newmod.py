@@ -5,7 +5,6 @@ import re
 import sys
 import base64
 import tarfile
-from optparse import OptionGroup
 
 from modtool_base import ModTool
 from newmod_tarfile import NEWMOD_TARFILE
@@ -14,7 +13,7 @@ from newmod_tarfile import NEWMOD_TARFILE
 class ModToolNewModule(ModTool):
     """ Create a new out-of-tree module """
     name = 'newmod'
-    aliases = ('nm', 'newmodule')
+    aliases = ('nm', 'create')
     def __init__(self):
         ModTool.__init__(self)
 

@@ -22,8 +22,8 @@ import sys
 import os
 import re
 import glob
-import distutils
 import base64
+import tarfile
 from datetime import datetime
 from optparse import OptionParser, OptionGroup
 from string import Template
