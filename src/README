@@ -1,0 +1,20 @@
+In this directory, you can find a version of gr_modtool.py which works just
+like the one in the directory above--but it's split up into lots ofmodules.
+
+This makes editing and developing much, much easier. The gr_modtool.py which
+contains all the stuff is actually auto-generated from here. To do that, run
+make_fullscript.py.
+
+There are some caveats:
+
+* make_fullscript.py contains a list of files, in the correct order, which
+  are simply pasted into the final gr_modtool.py. Anything up to a line
+  with three hash tags ('###') is ignored in these files and thus only
+  is needed for the split-module version.
+* All imports which go into the final version are defined in
+  fullscript_header.py, as well as the rest of the script header.
+* The function get_class_dict() is actually redefined three times because
+  it abuses Python scoping, and thus doesn't work when spread across
+  modules. So if this function should ever be changed, it needs at least to
+  be fixed in util_functions.py, because that's the version that makes into
+  the final product.

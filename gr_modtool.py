@@ -28,19 +28,6 @@ from optparse import OptionParser, OptionGroup
 from string import Template
 
 ### Utility functions ########################################################
-def get_class_dict():
-    " Return a dictionary of the available commands in the form command->class "
-    classdict = {}
-    for g in globals().values():
-        try:
-            if issubclass(g, ModTool):
-                classdict[g.name] = g
-                for a in g.aliases:
-                    classdict[a] = g
-        except (TypeError, AttributeError):
-            pass
-    return classdict
-
 def get_command_from_argv(possible_cmds):
     """ Read the requested command from argv. This can't be done with optparse,
     since the option parser isn't defined before the command is known, and
@@ -86,21 +73,6 @@ def str_to_python_comment(text):
     """ Return a string as a Python formatted comment. """
     return re.sub('^', '# ', text, flags=re.MULTILINE)
 
-def print_class_descriptions():
-    ''' Go through all ModTool* classes and print their name,
-        alias and description. '''
-    desclist = []
-    for gvar in globals().values():
-        try:
-            if issubclass(gvar, ModTool) and not issubclass(gvar, ModToolHelp):
-                desclist.append((gvar.name, ','.join(gvar.aliases), gvar.__doc__))
-        except (TypeError, AttributeError):
-            pass
-    print 'Name      Aliases          Description'
-    print '====================================================================='
-    for description in desclist:
-        print '%-8s  %-12s    %s' % description
-
 def get_modname():
     """ Grep the current module's name from gnuradio.project """
     try:
@@ -114,7 +86,18 @@ def get_modname():
     regexp = r'project\s*\(\s*gr-([a-zA-Z0-9-_]+)\s*CXX'
     return re.search(regexp, cmfile, flags=re.MULTILINE).group(1).strip()
 
-
+def get_class_dict():
+    " Return a dictionary of the available commands in the form command->class "
+    classdict = {}
+    for g in globals().values():
+        try:
+            if issubclass(g, ModTool):
+                classdict[g.name] = g
+                for a in g.aliases:
+                    classdict[a] = g
+        except (TypeError, AttributeError):
+            pass
+    return classdict
 
 ### Templates ################################################################
 Templates = {}
@@ -426,7 +409,6 @@ class CodeGenerator(object):
                 'hiercpp': 'gr_hier_block2',
                 'impl': ''}
 
-
     def strip_default_values(self, string):
         """ Strip default values from a C++ argument list. """
         return self.defvalpatt.sub("", string)
@@ -490,7 +472,6 @@ class CodeGenerator(object):
             kwargs['workfunc'] = Templates['work_cpp']
         return Templates['block_cpp'].substitute(kwargs) + \
                Templates['block_cpp_workcall'].substitute(kwargs)
-
 
 ### CMakeFile.txt editor class ###############################################
 class CMakeFileEditor(object):
@@ -646,7 +627,7 @@ class ModTool(object):
         return None
 
 
-### ModTool derived classes ##################################################
+### Add new block module #####################################################
 class ModToolAdd(ModTool):
     """ Add block to the out-of-tree module. """
     name = 'add'
@@ -874,7 +855,6 @@ class ModToolAdd(ModTool):
         ed.append_value('install', fname_grc, 'DESTINATION[^()]+')
         ed.write()
 
-
 ### Remove module ###########################################################
 class ModToolRemove(ModTool):
     """ Remove block (delete files and remove Makefile entries) """
@@ -994,6 +974,7 @@ class ModToolRemove(ModTool):
         return files_deleted
 
 
+
 ### New out-of-tree-mod module ###############################################
 class ModToolNewModule(ModTool):
     """ Create a new out-of-tree module """
@@ -1050,7 +1031,23 @@ class ModToolNewModule(ModTool):
 
 
 
+
 ### Help module ##############################################################
+def print_class_descriptions():
+    ''' Go through all ModTool* classes and print their name,
+        alias and description. '''
+    desclist = []
+    for gvar in globals().values():
+        try:
+            if issubclass(gvar, ModTool) and not issubclass(gvar, ModToolHelp):
+                desclist.append((gvar.name, ','.join(gvar.aliases), gvar.__doc__))
+        except (TypeError, AttributeError):
+            pass
+    print 'Name      Aliases          Description'
+    print '====================================================================='
+    for description in desclist:
+        print '%-8s  %-12s    %s' % description
+
 class ModToolHelp(ModTool):
     ''' Show some help. '''
     name = 'help'
@@ -1074,7 +1071,6 @@ class ModToolHelp(ModTool):
             print_class_descriptions()
             return
         cmd_dict[help_requested_for]().setup_parser().print_help()
-
 
 ### Main code ################################################################
 def main():

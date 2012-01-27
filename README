@@ -1,0 +1,6 @@
+This is gr_modtool.py, a script that helps editing your GNU Radio out-of-tree
+modules.
+
+Should you want to edit this, note that this file is auto_generated from a
+whole bunch of scripts located in src/.
+
