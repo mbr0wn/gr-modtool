@@ -139,20 +139,21 @@ $license
 #ifndef INCLUDED_${fullblocknameupper}_H
 #define INCLUDED_${fullblocknameupper}_H
 
+#include <${modname}_api.h>
 #include <$grblocktype.h>
 
 class $fullblockname;
 typedef boost::shared_ptr<$fullblockname> ${fullblockname}_sptr;
 
-${fullblockname}_sptr ${modname}_make_$blockname ($arglist);
+${modnameupper}_API ${fullblockname}_sptr ${modname}_make_$blockname ($arglist);
 
 /*!
  * \\brief <+description+>
  *
  */
-class $fullblockname : public $grblocktype
+class ${modnameupper}_API $fullblockname : public $grblocktype
 {
-	friend ${fullblockname}_sptr ${modname}_make_$blockname ($argliststripped);
+	friend ${modnameupper}_API ${fullblockname}_sptr ${modname}_make_$blockname ($argliststripped);
 
 	$fullblockname ($argliststripped);
 
@@ -434,6 +435,7 @@ class CodeGenerator(object):
         kwargs['argliststripped'] = self.strip_default_values(kwargs['arglist'])
         kwargs['arglistnotypes'] = self.strip_arg_types(kwargs['arglist'])
         kwargs['fullblocknameupper'] = kwargs['fullblockname'].upper()
+        kwargs['modnameupper'] = kwargs['modname'].upper()
         kwargs['grblocktype'] = self.grtypelist[kwargs['blocktype']]
         # Specials for qa_python
         kwargs['swig'] = ''
@@ -2244,7 +2246,6 @@ class ModToolNewModule(ModTool):
         skip_dir_re = re.compile('^..cmake|^..apps|^..grc|doxyxml')
         for root, dirs, files in os.walk('.'):
             if skip_dir_re.search(root):
-                print 'Skipping %s' % root
                 continue
             for filename in files:
                 f = os.path.join(root, filename)
