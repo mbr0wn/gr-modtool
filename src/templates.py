@@ -42,20 +42,21 @@ $license
 #ifndef INCLUDED_${fullblocknameupper}_H
 #define INCLUDED_${fullblocknameupper}_H
 
+#include <${modname}_api.h>
 #include <$grblocktype.h>
 
 class $fullblockname;
 typedef boost::shared_ptr<$fullblockname> ${fullblockname}_sptr;
 
-${fullblockname}_sptr ${modname}_make_$blockname ($arglist);
+${modnameupper}_API ${fullblockname}_sptr ${modname}_make_$blockname ($arglist);
 
 /*!
  * \\brief <+description+>
  *
  */
-class $fullblockname : public $grblocktype
+class ${modnameupper}_API $fullblockname : public $grblocktype
 {
-	friend ${fullblockname}_sptr ${modname}_make_$blockname ($argliststripped);
+	friend ${modnameupper}_API ${fullblockname}_sptr ${modname}_make_$blockname ($argliststripped);
 
 	$fullblockname ($argliststripped);
 

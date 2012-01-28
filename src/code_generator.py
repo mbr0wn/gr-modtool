@@ -41,6 +41,7 @@ class CodeGenerator(object):
         kwargs['argliststripped'] = self.strip_default_values(kwargs['arglist'])
         kwargs['arglistnotypes'] = self.strip_arg_types(kwargs['arglist'])
         kwargs['fullblocknameupper'] = kwargs['fullblockname'].upper()
+        kwargs['modnameupper'] = kwargs['modname'].upper()
         kwargs['grblocktype'] = self.grtypelist[kwargs['blocktype']]
         # Specials for qa_python
         kwargs['swig'] = ''
