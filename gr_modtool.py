@@ -2312,5 +2312,9 @@ def main():
     modtool.run()
 
 if __name__ == '__main__':
+    if not ((sys.version_info[0] > 2) or
+            (sys.version_info[0] == 2 and sys.version_info[1] >= 7)):
+        print "Python 2.7 required."
+        sys.exit(1)
     main()
 
