@@ -17,4 +17,15 @@ There are some caveats:
   it abuses Python scoping, and thus doesn't work when spread across
   modules. So if this function should ever be changed, it needs at least to
   be fixed in util_functions.py, because that's the version that makes into
-  the final product.
+  the final product (but should be changed in all cases).
+
+
+The gr-newmod directory
+=======================
+This dir basically contains a copy of gr-howto-write-a-block from the gnuradio
+sources, with some differences:
+- All example blocks, apps, grc files (...) and references thereto in the the
+  CMake files are removed
+- In the top-level CMake file, the project is called 'gr-howto'.
+
+
