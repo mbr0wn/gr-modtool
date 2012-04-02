@@ -24,19 +24,22 @@ class CMakeFileEditor(object):
     def append_value(self, entry, value, to_ignore=''):
         """ Add a value to an entry. """
         regexp = '(%s\([^()]*?)\s*?(\s?%s)\)' % (entry, to_ignore)
+        regexp = re.compile(regexp, re.MULTILINE)
         substi = r'\1' + self.separator + value + r'\2)'
         self.cfile = re.sub(regexp, substi, self.cfile,
-                            count=1, flags=re.MULTILINE)
+                            count=1)
 
     def remove_value(self, entry, value, to_ignore=''):
         """Remove a value from an entry."""
         regexp = '^\s*(%s\(\s*%s[^()]*?\s*)%s\s*([^()]*\))' % (entry, to_ignore, value)
-        self.cfile = re.sub(regexp, r'\1\2', self.cfile, count=1, flags=re.MULTILINE)
+        regexp = re.compile(regexp, re.MULTILINE)
+        self.cfile = re.sub(regexp, r'\1\2', self.cfile, count=1)
 
     def delete_entry(self, entry, value_pattern=''):
         """Remove an entry from the current buffer."""
         regexp = '%s\s*\([^()]*%s[^()]*\)[^\n]*\n' % (entry, value_pattern)
-        self.cfile = re.sub(regexp, '', self.cfile, count=1, flags=re.MULTILINE)
+        regexp = re.compile(regexp, re.MULTILINE)
+        self.cfile = re.sub(regexp, '', self.cfile, count=1)
 
     def write(self):
         """ Write the changes back to the file. """
@@ -44,5 +47,7 @@ class CMakeFileEditor(object):
 
     def remove_double_newlines(self):
         """Simply clear double newlines from the file buffer."""
-        self.cfile = re.sub('\n\n\n+', '\n\n', self.cfile, flags=re.MULTILINE)
+        regexp = re.compile('\n\n\n+', re.MULTILINE)
+        substi = re.compile('\n\n', re.MULTILINE)
+        self.cfile = re.sub(regexp, substi, self.cfile)
 

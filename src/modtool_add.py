@@ -207,10 +207,11 @@ class ModToolAdd(ModTool):
                                     swig_block_magic_str)
         else: # I.e., if the swig file is empty
             oldfile = open(fname_mainswig, 'r').read()
-            oldfile = re.sub('^%\{\n', '%%{\n#include "%s.h"\n' % self._info['fullblockname'],
-                           oldfile, count=1, flags=re.MULTILINE)
-            oldfile = re.sub('^%\}\n', '%}\n\n' + swig_block_magic_str,
-                           oldfile, count=1, flags=re.MULTILINE)
+            regexp = re.compile('^%\{\n', re.MULTILINE)
+            oldfile = re.sub(regexp, '%%{\n#include "%s.h"\n' % self._info['fullblockname'],
+                           oldfile, count=1)
+            oldfile = re.sub(regexp, '%}\n\n' + swig_block_magic_str,
+                           oldfile, count=1)
             open(fname_mainswig, 'w').write(oldfile)
 
 

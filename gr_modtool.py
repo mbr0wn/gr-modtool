@@ -59,7 +59,8 @@ def append_re_line_sequence(filename, linepattern, newline):
 def remove_pattern_from_file(filename, pattern):
     """ Remove all occurrences of a given pattern from a file. """
     oldfile = open(filename, 'r').read()
-    open(filename, 'w').write(re.sub(pattern, '', oldfile, flags=re.MULTILINE))
+    pattern = re.compile(pattern, re.MULTILINE)
+    open(filename, 'w').write(re.sub(pattern, '', oldfile))
 
 def str_to_fancyc_comment(text):
     """ Return a string as a C formatted comment. """
@@ -72,7 +73,8 @@ def str_to_fancyc_comment(text):
 
 def str_to_python_comment(text):
     """ Return a string as a Python formatted comment. """
-    return re.sub('^', '# ', text, flags=re.MULTILINE)
+    regexp = re.compile('^', re.MULTILINE)
+    return re.sub(regexp, '# ', text)
 
 def get_modname():
     """ Grep the current module's name from gnuradio.project """
@@ -498,19 +500,22 @@ class CMakeFileEditor(object):
     def append_value(self, entry, value, to_ignore=''):
         """ Add a value to an entry. """
         regexp = '(%s\([^()]*?)\s*?(\s?%s)\)' % (entry, to_ignore)
+        regexp = re.compile(regexp, re.MULTILINE)
         substi = r'\1' + self.separator + value + r'\2)'
         self.cfile = re.sub(regexp, substi, self.cfile,
-                            count=1, flags=re.MULTILINE)
+                            count=1)
 
     def remove_value(self, entry, value, to_ignore=''):
         """Remove a value from an entry."""
         regexp = '^\s*(%s\(\s*%s[^()]*?\s*)%s\s*([^()]*\))' % (entry, to_ignore, value)
-        self.cfile = re.sub(regexp, r'\1\2', self.cfile, count=1, flags=re.MULTILINE)
+        regexp = re.compile(regexp, re.MULTILINE)
+        self.cfile = re.sub(regexp, r'\1\2', self.cfile, count=1)
 
     def delete_entry(self, entry, value_pattern=''):
         """Remove an entry from the current buffer."""
         regexp = '%s\s*\([^()]*%s[^()]*\)[^\n]*\n' % (entry, value_pattern)
-        self.cfile = re.sub(regexp, '', self.cfile, count=1, flags=re.MULTILINE)
+        regexp = re.compile(regexp, re.MULTILINE)
+        self.cfile = re.sub(regexp, '', self.cfile, count=1)
 
     def write(self):
         """ Write the changes back to the file. """
@@ -518,7 +523,9 @@ class CMakeFileEditor(object):
 
     def remove_double_newlines(self):
         """Simply clear double newlines from the file buffer."""
-        self.cfile = re.sub('\n\n\n+', '\n\n', self.cfile, flags=re.MULTILINE)
+        regexp = re.compile('\n\n\n+', re.MULTILINE)
+        substi = re.compile('\n\n', re.MULTILINE)
+        self.cfile = re.sub(regexp, substi, self.cfile)
 
 ### ModTool base class #######################################################
 class ModTool(object):
@@ -826,10 +833,11 @@ class ModToolAdd(ModTool):
                                     swig_block_magic_str)
         else: # I.e., if the swig file is empty
             oldfile = open(fname_mainswig, 'r').read()
-            oldfile = re.sub('^%\{\n', '%%{\n#include "%s.h"\n' % self._info['fullblockname'],
-                           oldfile, count=1, flags=re.MULTILINE)
-            oldfile = re.sub('^%\}\n', '%}\n\n' + swig_block_magic_str,
-                           oldfile, count=1, flags=re.MULTILINE)
+            regexp = re.compile('^%\{\n', re.MULTILINE)
+            oldfile = re.sub(regexp, '%%{\n#include "%s.h"\n' % self._info['fullblockname'],
+                           oldfile, count=1)
+            oldfile = re.sub(regexp, '%}\n\n' + swig_block_magic_str,
+                           oldfile, count=1)
             open(fname_mainswig, 'w').write(oldfile)
 
 
@@ -2320,8 +2328,7 @@ def main():
 
 if __name__ == '__main__':
     if not ((sys.version_info[0] > 2) or
-            (sys.version_info[0] == 2 and sys.version_info[1] >= 7)):
-        print "Python 2.7 required."
-        sys.exit(1)
+            (sys.version_info[0] == 2 and sys.version_info[1] >= 6)):
+        print "Python 2.6 possibly buggy. Ahem."
     main()
 

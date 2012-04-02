@@ -34,7 +34,8 @@ def append_re_line_sequence(filename, linepattern, newline):
 def remove_pattern_from_file(filename, pattern):
     """ Remove all occurrences of a given pattern from a file. """
     oldfile = open(filename, 'r').read()
-    open(filename, 'w').write(re.sub(pattern, '', oldfile, flags=re.MULTILINE))
+    pattern = re.compile(pattern, re.MULTILINE)
+    open(filename, 'w').write(re.sub(pattern, '', oldfile))
 
 def str_to_fancyc_comment(text):
     """ Return a string as a C formatted comment. """
@@ -47,7 +48,8 @@ def str_to_fancyc_comment(text):
 
 def str_to_python_comment(text):
     """ Return a string as a Python formatted comment. """
-    return re.sub('^', '# ', text, flags=re.MULTILINE)
+    regexp = re.compile('^', re.MULTILINE)
+    return re.sub(regexp, '# ', text)
 
 def get_modname():
     """ Grep the current module's name from gnuradio.project """
