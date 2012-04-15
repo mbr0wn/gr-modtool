@@ -195,24 +195,21 @@ class ModToolAdd(ModTool):
             return
         fname_mainswig = os.path.join('swig', fname_mainswig)
         print "Editing %s..." % fname_mainswig
-        swig_block_magic_str = 'GR_SWIG_BLOCK_MAGIC(%s,%s);\n%%include "%s"\n' % (
+        swig_block_magic_str = '\nGR_SWIG_BLOCK_MAGIC(%s,%s);\n%%include "%s"\n' % (
                                    self._info['modname'],
                                    self._info['blockname'],
                                    self._info['fullblockname'] + '.h')
         if re.search('#include', open(fname_mainswig, 'r').read()):
             append_re_line_sequence(fname_mainswig, '^#include.*\n',
                     '#include "%s.h"' % self._info['fullblockname'])
-            append_re_line_sequence(fname_mainswig,
-                                    '^GR_SWIG_BLOCK_MAGIC\(.*?\);\s*?\%include.*\s*',
-                                    swig_block_magic_str)
         else: # I.e., if the swig file is empty
+            print 'was empty.'
             oldfile = open(fname_mainswig, 'r').read()
             regexp = re.compile('^%\{\n', re.MULTILINE)
-            oldfile = re.sub(regexp, '%%{\n#include "%s.h"\n' % self._info['fullblockname'],
-                           oldfile, count=1)
-            oldfile = re.sub(regexp, '%}\n\n' + swig_block_magic_str,
-                           oldfile, count=1)
+            oldfile = regexp.sub('%%{\n#include "%s.h"\n' % self._info['fullblockname'],
+                                 oldfile, count=1)
             open(fname_mainswig, 'w').write(oldfile)
+        open(fname_mainswig, 'a').write(swig_block_magic_str)
 
 
     def _run_python_qa(self):
