@@ -73,8 +73,7 @@ def str_to_fancyc_comment(text):
 
 def str_to_python_comment(text):
     """ Return a string as a Python formatted comment. """
-    regexp = re.compile('^', re.MULTILINE)
-    return re.sub(regexp, '# ', text)
+    return re.compile('^', re.MULTILINE).sub('# ', text)
 
 def get_modname():
     """ Grep the current module's name from gnuradio.project """
@@ -499,11 +498,10 @@ class CMakeFileEditor(object):
 
     def append_value(self, entry, value, to_ignore=''):
         """ Add a value to an entry. """
-        regexp = '(%s\([^()]*?)\s*?(\s?%s)\)' % (entry, to_ignore)
-        regexp = re.compile(regexp, re.MULTILINE)
+        regexp = re.compile('(%s\([^()]*?)\s*?(\s?%s)\)' % (entry, to_ignore),
+                            re.MULTILINE)
         substi = r'\1' + self.separator + value + r'\2)'
-        self.cfile = re.sub(regexp, substi, self.cfile,
-                            count=1)
+        self.cfile = regexp.sub(substi, self.cfile, count=1)
 
     def remove_value(self, entry, value, to_ignore=''):
         """Remove a value from an entry."""
@@ -523,9 +521,7 @@ class CMakeFileEditor(object):
 
     def remove_double_newlines(self):
         """Simply clear double newlines from the file buffer."""
-        regexp = re.compile('\n\n\n+', re.MULTILINE)
-        substi = re.compile('\n\n', re.MULTILINE)
-        self.cfile = re.sub(regexp, substi, self.cfile)
+        self.cfile = re.compile('\n\n\n+', re.MULTILINE).sub('\n\n', self.cfile)
 
 ### ModTool base class #######################################################
 class ModTool(object):
@@ -829,7 +825,6 @@ class ModToolAdd(ModTool):
             append_re_line_sequence(fname_mainswig, '^#include.*\n',
                     '#include "%s.h"' % self._info['fullblockname'])
         else: # I.e., if the swig file is empty
-            print 'was empty.'
             oldfile = open(fname_mainswig, 'r').read()
             regexp = re.compile('^%\{\n', re.MULTILINE)
             oldfile = regexp.sub('%%{\n#include "%s.h"\n' % self._info['fullblockname'],
@@ -928,6 +923,15 @@ class ModToolRemove(ModTool):
             ed.delete_entry('GR_ADD_TEST', filebase)
             ed.remove_double_newlines()
 
+        def _remove_py_test_case(filename=None, ed=None):
+            """ Special function that removes the occurrences of a qa*.py file
+            from the CMakeLists.txt. """
+            if filename[:2] != 'qa':
+                return
+            filebase = os.path.splitext(filename)[0]
+            ed.delete_entry('GR_ADD_TEST', filebase)
+            ed.remove_double_newlines()
+
         def _make_swig_regex(filename):
             filebase = os.path.splitext(filename)[0]
             pyblockname = filebase.replace(self._info['modname'] + '_', '')
@@ -944,9 +948,10 @@ class ModToolRemove(ModTool):
         if not self._skip_subdirs['swig']:
             for f in incl_files_deleted:
                 remove_pattern_from_file('swig/'+self._get_mainswigfile(), _make_swig_regex(f))
-                remove_pattern_from_file('swig/'+self._get_mainswigfile(), '#include "%s"' % f)
+                remove_pattern_from_file('swig/'+self._get_mainswigfile(), '#include "%s".*\n' % f)
         if not self._skip_subdirs['python']:
-            py_files_deleted = self._run_subdir('python', ('*.py',), ('GR_PYTHON_INSTALL',))
+            py_files_deleted = self._run_subdir('python', ('*.py',), ('GR_PYTHON_INSTALL',),
+                                                cmakeedit_func=_remove_py_test_case)
             for f in py_files_deleted:
                 remove_pattern_from_file('python/__init__.py', '.*import.*%s.*' % f[:-3])
         if not self._skip_subdirs['grc']:
@@ -2300,7 +2305,7 @@ def main():
 
 if __name__ == '__main__':
     if not ((sys.version_info[0] > 2) or
-            (sys.version_info[0] == 2 and sys.version_info[1] >= 6)):
+            (sys.version_info[0] == 2 and sys.version_info[1] >= 7)):
         print "Python 2.6 possibly buggy. Ahem."
     main()
 

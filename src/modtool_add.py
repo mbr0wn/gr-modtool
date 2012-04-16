@@ -203,7 +203,6 @@ class ModToolAdd(ModTool):
             append_re_line_sequence(fname_mainswig, '^#include.*\n',
                     '#include "%s.h"' % self._info['fullblockname'])
         else: # I.e., if the swig file is empty
-            print 'was empty.'
             oldfile = open(fname_mainswig, 'r').read()
             regexp = re.compile('^%\{\n', re.MULTILINE)
             oldfile = regexp.sub('%%{\n#include "%s.h"\n' % self._info['fullblockname'],

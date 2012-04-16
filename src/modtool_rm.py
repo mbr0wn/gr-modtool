@@ -58,6 +58,15 @@ class ModToolRemove(ModTool):
             ed.delete_entry('GR_ADD_TEST', filebase)
             ed.remove_double_newlines()
 
+        def _remove_py_test_case(filename=None, ed=None):
+            """ Special function that removes the occurrences of a qa*.py file
+            from the CMakeLists.txt. """
+            if filename[:2] != 'qa':
+                return
+            filebase = os.path.splitext(filename)[0]
+            ed.delete_entry('GR_ADD_TEST', filebase)
+            ed.remove_double_newlines()
+
         def _make_swig_regex(filename):
             filebase = os.path.splitext(filename)[0]
             pyblockname = filebase.replace(self._info['modname'] + '_', '')
@@ -74,9 +83,10 @@ class ModToolRemove(ModTool):
         if not self._skip_subdirs['swig']:
             for f in incl_files_deleted:
                 remove_pattern_from_file('swig/'+self._get_mainswigfile(), _make_swig_regex(f))
-                remove_pattern_from_file('swig/'+self._get_mainswigfile(), '#include "%s"' % f)
+                remove_pattern_from_file('swig/'+self._get_mainswigfile(), '#include "%s".*\n' % f)
         if not self._skip_subdirs['python']:
-            py_files_deleted = self._run_subdir('python', ('*.py',), ('GR_PYTHON_INSTALL',))
+            py_files_deleted = self._run_subdir('python', ('*.py',), ('GR_PYTHON_INSTALL',),
+                                                cmakeedit_func=_remove_py_test_case)
             for f in py_files_deleted:
                 remove_pattern_from_file('python/__init__.py', '.*import.*%s.*' % f[:-3])
         if not self._skip_subdirs['grc']:

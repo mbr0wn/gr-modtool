@@ -38,7 +38,7 @@ def main():
 
 if __name__ == '__main__':
     if not ((sys.version_info[0] > 2) or
-            (sys.version_info[0] == 2 and sys.version_info[1] >= 6)):
+            (sys.version_info[0] == 2 and sys.version_info[1] >= 7)):
         print "Python 2.6 possibly buggy. Ahem."
     main()
 

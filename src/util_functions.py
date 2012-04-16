@@ -48,8 +48,7 @@ def str_to_fancyc_comment(text):
 
 def str_to_python_comment(text):
     """ Return a string as a Python formatted comment. """
-    regexp = re.compile('^', re.MULTILINE)
-    return re.sub(regexp, '# ', text)
+    return re.compile('^', re.MULTILINE).sub('# ', text)
 
 def get_modname():
     """ Grep the current module's name from gnuradio.project """
