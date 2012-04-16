@@ -48,6 +48,5 @@ class CMakeFileEditor(object):
     def remove_double_newlines(self):
         """Simply clear double newlines from the file buffer."""
         regexp = re.compile('\n\n\n+', re.MULTILINE)
-        substi = re.compile('\n\n', re.MULTILINE)
-        self.cfile = re.sub(regexp, substi, self.cfile)
+        self.cfile = regexp.sub('\n\n', self.cfile)
 
