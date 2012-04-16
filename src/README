@@ -1,5 +1,5 @@
 In this directory, you can find a version of gr_modtool.py which works just
-like the one in the directory above--but it's split up into lots ofmodules.
+like the one in the directory above--but it's split up into lots of modules.
 
 This makes editing and developing much, much easier. The gr_modtool.py which
 contains all the stuff is actually auto-generated from here. To do that, run

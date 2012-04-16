@@ -1,6 +1,34 @@
-This is gr_modtool.py, a script that helps editing your GNU Radio out-of-tree
-modules.
+Description
+===========
 
-Should you want to edit this, note that this file is auto_generated from a
-whole bunch of scripts located in src/.
+This is gr_modtool.py, a script that helps editing your GNU Radio out-of-tree
+modules. It allows you to create new modules, add and remove blocks and
+probably a lot more cool stuff.
+
+Installation
+============
+
+Easy way (for users):
+
+To install, simply copy gr_modtool.py from this directory somwhere into your
+$PATH.
+
+Slightly less easy way (for developers):
+
+Put a link to src/gr_modtool.py somewhere into your $PATH.
+
+
+Notes for developers:
+=====================
+
+And by developers, I mean people who want to hack gr_modtool.py, not people
+who want to develop GNU Radio (which in this context, shall be called 'users').
+
+gr_modtool.py is auto-generated from a whole bunch of scripts, which are located
+in src/. The reason being, it's still small enough to easily distribute as a single
+executable and doesn't require complicated installation, with Python modules etc.
+
+On the other hand, the complete script is a couple of thousand LOCs, so it's not
+really a handy way to edit.
+So, if you want to edit the source code, best to dive into src/.
 
