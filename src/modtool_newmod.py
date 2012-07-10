@@ -64,7 +64,7 @@ class ModToolNewModule(ModTool):
         tar.extractall()
         tar.close()
         os.unlink('tmp.tar.bz2')
-        print "Replacing occurences of 'howto' to '%s'..." % self._info['modname']
+        print "Replacing occurences of 'howto' to '%s'..." % self._info['modname'],
         skip_dir_re = re.compile('^..cmake|^..apps|^..grc|doxyxml')
         for root, dirs, files in os.walk('.'):
             if skip_dir_re.search(root):
