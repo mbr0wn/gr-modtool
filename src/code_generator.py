@@ -15,7 +15,8 @@ class CodeGenerator(object):
                 'interpolator': 'gr_sync_interpolator',
                 'general': 'gr_block',
                 'hiercpp': 'gr_hier_block2',
-                'impl': ''}
+                'impl': '',
+                'hierpython': ''}
 
     def strip_default_values(self, string):
         """ Strip default values from a C++ argument list. """
