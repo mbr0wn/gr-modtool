@@ -8,6 +8,7 @@ from modtool_help import ModToolHelp
 from modtool_add import ModToolAdd
 from modtool_rm import ModToolRemove
 from modtool_newmod import ModToolNewModule
+from modtool_makexml import ModToolMakeXML
 from util_functions import get_command_from_argv
 
 def get_class_dict():
