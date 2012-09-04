@@ -117,7 +117,7 @@ $license
 ${fullblockname}_sptr
 ${modname}_make_$blockname ($argliststripped)
 {
-	return $sptr (new $fullblockname ($arglistnotypes));
+    return gnuradio::get_initial_sptr(new $fullblockname ($arglistnotypes));
 }
 
 
