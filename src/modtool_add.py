@@ -21,7 +21,7 @@ class ModToolAdd(ModTool):
     def __init__(self):
         ModTool.__init__(self)
         self._info['inputsig'] = "<+MIN_IN+>, <+MAX_IN+>, sizeof (<+float+>)"
-        self._info['outputsig'] = "<+MIN_IN+>, <+MAX_IN+>, sizeof (<+float+>)"
+        self._info['outputsig'] = "<+MIN_OUT+>, <+MAX_OUT+>, sizeof (<+float+>)"
         self._add_cc_qa = False
         self._add_py_qa = False
 
