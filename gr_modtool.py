@@ -215,7 +215,7 @@ $license
 ${fullblockname}_sptr
 ${modname}_make_$blockname ($argliststripped)
 {
-	return $sptr (new $fullblockname ($arglistnotypes));
+    return gnuradio::get_initial_sptr(new $fullblockname ($arglistnotypes));
 }
 
 
@@ -481,11 +481,11 @@ class CodeGenerator(object):
 ### CMakeFile.txt editor class ###############################################
 class CMakeFileEditor(object):
     """A tool for editing CMakeLists.txt files. """
-    def __init__(self, filename, separator=' '):
+    def __init__(self, filename, separator=' ', indent='    '):
         self.filename = filename
-        fid = open(filename, 'r')
-        self.cfile = fid.read()
+        self.cfile = open(filename, 'r').read()
         self.separator = separator
+        self.indent = indent
 
     def get_entry_value(self, entry, to_ignore=''):
         """ Get the value of an entry.
@@ -523,6 +523,49 @@ class CMakeFileEditor(object):
     def remove_double_newlines(self):
         """Simply clear double newlines from the file buffer."""
         self.cfile = re.compile('\n\n\n+', re.MULTILINE).sub('\n\n', self.cfile)
+
+    def find_filenames_match(self, regex):
+        """ Find the filenames that match a certain regex
+        on lines that aren't comments """
+        filenames = []
+        reg = re.compile(regex)
+        fname_re = re.compile('[a-zA-Z]\w+\.\w{1,5}$')
+        for line in self.cfile.splitlines():
+            if len(line.strip()) == 0 or line.strip()[0] == '#': continue
+            for word in re.split('[ /)(\t\n\r\f\v]', line):
+                if fname_re.match(word) and reg.search(word):
+                    filenames.append(word)
+        return filenames
+
+    def disable_file(self, fname):
+        """ Comment out a file """
+        starts_line = False
+        ends_line = False
+        for line in self.cfile.splitlines():
+            if len(line.strip()) == 0 or line.strip()[0] == '#': continue
+            if re.search(r'\b'+fname+r'\b', line):
+                if re.match(fname, line.lstrip()):
+                    starts_line = True
+                if re.search(fname+'$', line.rstrip()):
+                    end_line = True
+                break
+        comment_out_re = r'#\1'
+        if not starts_line:
+            comment_out_re = r'\n' + self.indent + comment_out_re
+        if not ends_line:
+            comment_out_re = comment_out_re + '\n' + self.indent
+        (self.cfile, nsubs) = re.subn(r'(\b'+fname+r'\b)\s*', comment_out_re, self.cfile)
+        if nsubs == 0:
+            print "Warning: A replacement failed when commenting out %s. Check the CMakeFile.txt manually." % fname
+        elif nsubs > 1:
+            print "Warning: Replaced %s %d times (instead of once). Check the CMakeFile.txt manually." % (fname, nsubs)
+
+
+    def comment_out_lines(self, pattern):
+        """ Comments out all lines that match with pattern """
+        for line in self.cfile.splitlines():
+            if re.search(pattern, line):
+                self.cfile = self.cfile.replace(line, '#'+line)
 
 ### ModTool base class #######################################################
 class ModTool(object):
@@ -644,7 +687,7 @@ class ModToolAdd(ModTool):
     def __init__(self):
         ModTool.__init__(self)
         self._info['inputsig'] = "<+MIN_IN+>, <+MAX_IN+>, sizeof (<+float+>)"
-        self._info['outputsig'] = "<+MIN_IN+>, <+MAX_IN+>, sizeof (<+float+>)"
+        self._info['outputsig'] = "<+MIN_OUT+>, <+MAX_OUT+>, sizeof (<+float+>)"
         self._add_cc_qa = False
         self._add_py_qa = False
 
@@ -1006,6 +1049,119 @@ class ModToolRemove(ModTool):
         ed.write()
         return files_deleted
 
+
+### Disable module ###########################################################
+class ModToolDisable(ModTool):
+    """ Disable block (comments out CMake entries for files) """
+    name = 'disable'
+    aliases = ('dis',)
+    def __init__(self):
+        ModTool.__init__(self)
+
+    def setup_parser(self):
+        " Initialise the option parser for 'gr_modtool.py rm' "
+        parser = ModTool.setup_parser(self)
+        parser.usage = '%prog disable [options]. \n Call %prog without any options to run it interactively.'
+        ogroup = OptionGroup(parser, "Disable module options")
+        ogroup.add_option("-p", "--pattern", type="string", default=None,
+                help="Filter possible choices for blocks to be disabled.")
+        ogroup.add_option("-y", "--yes", action="store_true", default=False,
+                help="Answer all questions with 'yes'.")
+        parser.add_option_group(ogroup)
+        return parser
+
+    def setup(self):
+        ModTool.setup(self)
+        options = self.options
+        if options.pattern is not None:
+            self._info['pattern'] = options.pattern
+        elif options.block_name is not None:
+            self._info['pattern'] = options.block_name
+        elif len(self.args) >= 2:
+            self._info['pattern'] = self.args[1]
+        else:
+            self._info['pattern'] = raw_input('Which blocks do you want to disable? (Regex): ')
+        if len(self._info['pattern']) == 0:
+            self._info['pattern'] = '.'
+        self._info['yes'] = options.yes
+
+    def run(self):
+        """ Go, go, go! """
+        def _handle_py_qa(cmake, fname):
+            """ Do stuff for py qa """
+            cmake.comment_out_lines('GR_ADD_TEST.*'+fname)
+            return True
+        def _handle_py_mod(cmake, fname):
+            """ Do stuff for py extra files """
+            try:
+                initfile = open(os.path.join('python', '__init__.py')).read()
+            except IOError:
+                return False
+            pymodname = os.path.splitext(fname)[0]
+            initfile = re.sub(r'((from|import)\s+\b'+pymodname+r'\b)', r'#\1', initfile)
+            open(os.path.join('python', '__init__.py'), 'w').write(initfile)
+            return False
+        def _handle_cc_qa(cmake, fname):
+            """ Do stuff for cc qa """
+            cmake.comment_out_lines('add_executable.*'+fname)
+            cmake.comment_out_lines('target_link_libraries.*'+os.path.splitext(fname)[0])
+            cmake.comment_out_lines('GR_ADD_TEST.*'+os.path.splitext(fname)[0])
+            return True
+        def _handle_h_swig(cmake, fname):
+            """ Comment out include files from the SWIG file,
+            as well as the block magic """
+            swigfile = open(os.path.join('swig', self._get_mainswigfile())).read()
+            (swigfile, nsubs) = re.subn('(.include\s+"'+fname+'")', r'//\1', swigfile)
+            if nsubs > 0:
+                print "Changing %s..." % self._get_mainswigfile()
+            if nsubs > 1: # Need to find a single BLOCK_MAGIC
+                blockname = os.path.splitext(fname[len(self._info['modname'])+1:])[0] # DEPRECATE 3.7
+                (swigfile, nsubs) = re.subn('(GR_SWIG_BLOCK_MAGIC.+'+blockname+'.+;)', r'//\1', swigfile)
+                if nsubs > 1:
+                    print "Hm, something didn't go right while editing %s." % swigfile
+            open(os.path.join('swig', self._get_mainswigfile()), 'w').write(swigfile)
+            return False
+        def _handle_i_swig(cmake, fname):
+            """ Comment out include files from the SWIG file,
+            as well as the block magic """
+            swigfile = open(os.path.join('swig', self._get_mainswigfile())).read()
+            blockname = os.path.splitext(fname[len(self._info['modname'])+1:])[0] # DEPRECATE 3.7
+            swigfile = re.sub('(%include\s+"'+fname+'")', r'//\1', swigfile)
+            print "Changing %s..." % self._get_mainswigfile()
+            swigfile = re.sub('(GR_SWIG_BLOCK_MAGIC.+'+blockname+'.+;)', r'//\1', swigfile)
+            open(os.path.join('swig', self._get_mainswigfile()), 'w').write(swigfile)
+            return False
+        # List of special rules: 0: subdir, 1: filename re match, 2: function
+        special_treatments = (
+                ('python', 'qa.+py$', _handle_py_qa),
+                ('python', '^(?!qa).+py$', _handle_py_mod),
+                ('lib', 'qa.+\.cc$', _handle_cc_qa),
+                ('include', '.+\.h$', _handle_h_swig),
+                ('swig', '.+\.i$', _handle_i_swig)
+        )
+        for subdir in self._subdirs:
+            if self._skip_subdirs[subdir]: continue
+            print "Traversing %s..." % subdir
+            cmake = CMakeFileEditor(os.path.join(subdir, 'CMakeLists.txt'))
+            filenames = cmake.find_filenames_match(self._info['pattern'])
+            yes = self._info['yes']
+            for fname in filenames:
+                file_disabled = False
+                if not yes:
+                    ans = raw_input("Really disable %s? [Y/n/a/q]: " % fname).lower().strip()
+                    if ans == 'a':
+                        yes = True
+                    if ans == 'q':
+                        sys.exit(0)
+                    if ans == 'n':
+                        continue
+                    for special_treatment in special_treatments:
+                        if special_treatment[0] == subdir and re.match(special_treatment[1], fname):
+                            file_disabled = special_treatment[2](cmake, fname)
+                    if not file_disabled:
+                        cmake.disable_file(fname)
+            cmake.write()
+        print "Careful: gr_modtool disable does not resolve dependencies."
 
 ### The entire new module zipfile as base64 encoded tar.bz2  ###
 NEWMOD_TARFILE = """QlpoOTFBWSZTWXG/ETkBol3////9Vof///////////////8ABQgBE04EgAAIBAABgqg4YZX7zqeM
@@ -2309,6 +2465,6 @@ def main():
 if __name__ == '__main__':
     if not ((sys.version_info[0] > 2) or
             (sys.version_info[0] == 2 and sys.version_info[1] >= 7)):
-        print "Python 2.6 possibly buggy. Ahem."
+        print "Using Python < 2.7 possibly buggy. Ahem. Please send all complaints to /dev/null."
     main()
 

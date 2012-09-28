@@ -28,7 +28,8 @@ LIST_OF_FILES = (
         'modtool_base.py',
         'modtool_add.py',
         'modtool_rm.py',
-        'newmod_tarfile.py', 
+        'modtool_disable.py',
+        'newmod_tarfile.py',
         'modtool_newmod.py',
         'modtool_help.py',
         'gr_modtool.py')

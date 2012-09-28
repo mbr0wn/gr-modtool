@@ -74,7 +74,7 @@ class ModToolDisable(ModTool):
             if nsubs > 0:
                 print "Changing %s..." % self._get_mainswigfile()
             if nsubs > 1: # Need to find a single BLOCK_MAGIC
-                blockname = os.path.splitex(fname[len(self._info['modname'])+1:])[0] # DEPRECATE 3.7
+                blockname = os.path.splitext(fname[len(self._info['modname'])+1:])[0] # DEPRECATE 3.7
                 (swigfile, nsubs) = re.subn('(GR_SWIG_BLOCK_MAGIC.+'+blockname+'.+;)', r'//\1', swigfile)
                 if nsubs > 1:
                     print "Hm, something didn't go right while editing %s." % swigfile
@@ -120,5 +120,5 @@ class ModToolDisable(ModTool):
                     if not file_disabled:
                         cmake.disable_file(fname)
             cmake.write()
-        print "Careful: gr_modtool does not resolve dependencies."
+        print "Careful: gr_modtool disable does not resolve dependencies."
 
