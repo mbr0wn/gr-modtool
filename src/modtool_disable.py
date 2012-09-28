@@ -62,6 +62,7 @@ class ModToolDisable(ModTool):
             return False
         def _handle_cc_qa(cmake, fname):
             """ Do stuff for cc qa """
+            print 'hello...'
             cmake.comment_out_lines('add_executable.*'+fname)
             cmake.comment_out_lines('target_link_libraries.*'+os.path.splitext(fname)[0])
             cmake.comment_out_lines('GR_ADD_TEST.*'+os.path.splitext(fname)[0])
@@ -114,11 +115,11 @@ class ModToolDisable(ModTool):
                         sys.exit(0)
                     if ans == 'n':
                         continue
-                    for special_treatment in special_treatments:
-                        if special_treatment[0] == subdir and re.match(special_treatment[1], fname):
-                            file_disabled = special_treatment[2](cmake, fname)
-                    if not file_disabled:
-                        cmake.disable_file(fname)
+                for special_treatment in special_treatments:
+                    if special_treatment[0] == subdir and re.match(special_treatment[1], fname):
+                        file_disabled = special_treatment[2](cmake, fname)
+                if not file_disabled:
+                    cmake.disable_file(fname)
             cmake.write()
         print "Careful: gr_modtool disable does not resolve dependencies."
 
