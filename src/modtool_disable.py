@@ -11,7 +11,7 @@ from cmakefile_editor import CMakeFileEditor
 
 ### Disable module ###########################################################
 class ModToolDisable(ModTool):
-    """ Disable block (remove CMake entries for files) """
+    """ Disable block (comments out CMake entries for files) """
     name = 'disable'
     aliases = ('dis',)
     def __init__(self):
@@ -49,15 +49,44 @@ class ModToolDisable(ModTool):
         def _handle_py_qa(cmake, fname):
             """ Do stuff for py qa """
             cmake.comment_out_lines('GR_ADD_TEST.*'+fname)
+            return True
         def _handle_cc_qa(cmake, fname):
             """ Do stuff for cc qa """
             cmake.comment_out_lines('add_executable.*'+fname)
             cmake.comment_out_lines('target_link_libraries.*'+os.path.splitext(fname)[0])
             cmake.comment_out_lines('GR_ADD_TEST.*'+os.path.splitext(fname)[0])
+            return True
+        def _handle_h_swig(cmake, fname):
+            """ Comment out include files from the SWIG file,
+            as well as the block magic """
+            swigfile = open(os.path.join('swig', self._get_mainswigfile())).read()
+            (swigfile, nsubs) = re.subn('(.include\s+"'+fname+'")', r'//\1', swigfile)
+            if nsubs > 0:
+                print "Changing %s..." % self._get_mainswigfile()
+            if nsubs > 1: # Need to find a single BLOCK_MAGIC
+                blockname = fname[len(self._info['modname'])+1:].replace('.h', '') # DEPRECATE 3.7
+                (swigfile, nsubs) = re.subn('(GR_SWIG_BLOCK_MAGIC.+'+blockname+'.+;)', r'//\1', swigfile)
+                if nsubs > 1:
+                    print "Hm, something didn't go right while editing %s." % swigfile
+            open(os.path.join('swig', self._get_mainswigfile()), 'w').write(swigfile)
+            return False
+        def _handle_i_swig(cmake, fname):
+            """ Comment out include files from the SWIG file,
+            as well as the block magic """
+            swigfile = open(os.path.join('swig', self._get_mainswigfile())).read()
+            blockname = fname[len(self._info['modname'])+1:].replace('.i', '') # DEPRECATE 3.7
+            swigfile = re.sub('(%include\s+"'+fname+'")', r'//\1', swigfile)
+            print "Changing %s..." % self._get_mainswigfile()
+            swigfile = re.sub('(GR_SWIG_BLOCK_MAGIC.+'+blockname+'.+;)', r'//\1', swigfile)
+            open(os.path.join('swig', self._get_mainswigfile()), 'w').write(swigfile)
+            return False
+        # List of special rules: 0: subdir, 1: filename re match, 2: function
         special_treatments = (
                 ('python', 'qa.+py$', _handle_py_qa),
                 ('lib', 'qa.+\.cc$', _handle_cc_qa),
-                )
+                ('include', '.+\.h$', _handle_h_swig),
+                ('swig', '.+\.i$', _handle_i_swig)
+        )
         for subdir in self._subdirs:
             if self._skip_subdirs[subdir]: continue
             print "Traversing %s..." % subdir
@@ -76,9 +105,9 @@ class ModToolDisable(ModTool):
                         continue
                     for special_treatment in special_treatments:
                         if special_treatment[0] == subdir and re.match(special_treatment[1], fname):
-                            special_treatment[2](cmake, fname)
-                            file_disabled = True
+                            file_disabled = special_treatment[2](cmake, fname)
                     if not file_disabled:
                         cmake.disable_file(fname)
             cmake.write()
+        print "Careful: gr_modtool may not have resolved all dependencies."
 
