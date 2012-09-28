@@ -8,6 +8,7 @@ from modtool_help import ModToolHelp
 from modtool_add import ModToolAdd
 from modtool_rm import ModToolRemove
 from modtool_newmod import ModToolNewModule
+from modtool_disable import ModToolDisable
 from util_functions import get_command_from_argv
 
 def get_class_dict():
@@ -39,6 +40,6 @@ def main():
 if __name__ == '__main__':
     if not ((sys.version_info[0] > 2) or
             (sys.version_info[0] == 2 and sys.version_info[1] >= 7)):
-        print "Python 2.6 possibly buggy. Ahem."
+        print "Using Python < 2.7 possibly buggy. Ahem. Please send all complaints to /dev/null."
     main()
 

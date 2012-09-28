@@ -5,11 +5,11 @@ import re
 ### CMakeFile.txt editor class ###############################################
 class CMakeFileEditor(object):
     """A tool for editing CMakeLists.txt files. """
-    def __init__(self, filename, separator=' '):
+    def __init__(self, filename, separator=' ', indent='    '):
         self.filename = filename
-        fid = open(filename, 'r')
-        self.cfile = fid.read()
+        self.cfile = open(filename, 'r').read()
         self.separator = separator
+        self.indent = indent
 
     def get_entry_value(self, entry, to_ignore=''):
         """ Get the value of an entry.
@@ -47,4 +47,47 @@ class CMakeFileEditor(object):
     def remove_double_newlines(self):
         """Simply clear double newlines from the file buffer."""
         self.cfile = re.compile('\n\n\n+', re.MULTILINE).sub('\n\n', self.cfile)
+
+    def find_filenames_match(self, regex):
+        """ Find the filenames that match a certain regex
+        on lines that aren't comments """
+        filenames = []
+        reg = re.compile(regex)
+        fname_re = re.compile('[a-zA-Z]\w+\.\w{1,5}$')
+        for line in self.cfile.splitlines():
+            if len(line.strip()) == 0 or line.strip()[0] == '#': continue
+            for word in re.split('[ /)(\t\n\r\f\v]', line):
+                if fname_re.match(word) and reg.search(word):
+                    filenames.append(word)
+        return filenames
+
+    def disable_file(self, fname):
+        """ Comment out a file """
+        starts_line = False
+        ends_line = False
+        for line in self.cfile.splitlines():
+            if len(line.strip()) == 0 or line.strip()[0] == '#': continue
+            if re.search(r'\b'+fname+r'\b', line):
+                if re.match(fname, line.lstrip()):
+                    starts_line = True
+                if re.search(fname+'$', line.rstrip()):
+                    end_line = True
+                break
+        comment_out_re = r'#\1'
+        if not starts_line:
+            comment_out_re = r'\n' + self.indent + comment_out_re
+        if not ends_line:
+            comment_out_re = comment_out_re + '\n' + self.indent
+        (self.cfile, nsubs) = re.subn(r'(\b'+fname+r'\b)\s*', comment_out_re, self.cfile)
+        if nsubs == 0:
+            print "Warning: A replacement failed when commenting out %s. Check the CMakeFile.txt manually." % fname
+        elif nsubs > 1:
+            print "Warning: Replaced %s %d times (instead of once). Check the CMakeFile.txt manually." % (fname, nsubs)
+
+
+    def comment_out_lines(self, pattern):
+        """ Comments out all lines that match with pattern """
+        for line in self.cfile.splitlines():
+            if re.search(pattern, line):
+                self.cfile = self.cfile.replace(line, '#'+line)
 

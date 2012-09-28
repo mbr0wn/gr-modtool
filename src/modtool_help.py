@@ -4,6 +4,7 @@ from modtool_base import ModTool
 from modtool_add import ModToolAdd
 from modtool_rm import ModToolRemove
 from modtool_newmod import ModToolNewModule
+from modtool_disable import ModToolDisable
 from util_functions import get_command_from_argv
 from templates import Templates
 
