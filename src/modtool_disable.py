@@ -50,6 +50,16 @@ class ModToolDisable(ModTool):
             """ Do stuff for py qa """
             cmake.comment_out_lines('GR_ADD_TEST.*'+fname)
             return True
+        def _handle_py_mod(cmake, fname):
+            """ Do stuff for py extra files """
+            try:
+                initfile = open(os.path.join('python', '__init__.py')).read()
+            except IOError:
+                return False
+            pymodname = os.path.splitext(fname)[0]
+            initfile = re.sub(r'((from|import)\s+\b'+pymodname+r'\b)', r'#\1', initfile)
+            open(os.path.join('python', '__init__.py'), 'w').write(initfile)
+            return False
         def _handle_cc_qa(cmake, fname):
             """ Do stuff for cc qa """
             cmake.comment_out_lines('add_executable.*'+fname)
@@ -64,7 +74,7 @@ class ModToolDisable(ModTool):
             if nsubs > 0:
                 print "Changing %s..." % self._get_mainswigfile()
             if nsubs > 1: # Need to find a single BLOCK_MAGIC
-                blockname = fname[len(self._info['modname'])+1:].replace('.h', '') # DEPRECATE 3.7
+                blockname = os.path.splitex(fname[len(self._info['modname'])+1:])[0] # DEPRECATE 3.7
                 (swigfile, nsubs) = re.subn('(GR_SWIG_BLOCK_MAGIC.+'+blockname+'.+;)', r'//\1', swigfile)
                 if nsubs > 1:
                     print "Hm, something didn't go right while editing %s." % swigfile
@@ -74,7 +84,7 @@ class ModToolDisable(ModTool):
             """ Comment out include files from the SWIG file,
             as well as the block magic """
             swigfile = open(os.path.join('swig', self._get_mainswigfile())).read()
-            blockname = fname[len(self._info['modname'])+1:].replace('.i', '') # DEPRECATE 3.7
+            blockname = os.path.splitext(fname[len(self._info['modname'])+1:])[0] # DEPRECATE 3.7
             swigfile = re.sub('(%include\s+"'+fname+'")', r'//\1', swigfile)
             print "Changing %s..." % self._get_mainswigfile()
             swigfile = re.sub('(GR_SWIG_BLOCK_MAGIC.+'+blockname+'.+;)', r'//\1', swigfile)
@@ -83,6 +93,7 @@ class ModToolDisable(ModTool):
         # List of special rules: 0: subdir, 1: filename re match, 2: function
         special_treatments = (
                 ('python', 'qa.+py$', _handle_py_qa),
+                ('python', '^(?!qa).+py$', _handle_py_mod),
                 ('lib', 'qa.+\.cc$', _handle_cc_qa),
                 ('include', '.+\.h$', _handle_h_swig),
                 ('swig', '.+\.i$', _handle_i_swig)
@@ -109,5 +120,5 @@ class ModToolDisable(ModTool):
                     if not file_disabled:
                         cmake.disable_file(fname)
             cmake.write()
-        print "Careful: gr_modtool may not have resolved all dependencies."
+        print "Careful: gr_modtool does not resolve dependencies."
 
