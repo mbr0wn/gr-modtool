@@ -7,7 +7,7 @@ import glob
 import xml.dom.minidom as minidom
 from optparse import OptionGroup
 
-from util_functions import remove_pattern_from_file
+from util_functions import remove_pattern_from_file, is_number
 from modtool_base import ModTool
 from cmakefile_editor import CMakeFileEditor
 
@@ -80,70 +80,23 @@ class ModToolMakeXML(ModTool):
             if default_v[0:2] == '0x' and p_type == 'int':
                 return 'hex'
             return p_type
-        def is_number(s):
-            try:
-                float(s)
-                return True
-            except ValueError:
-                return False
-        code_cc = open(filename).read()
+
         blockname = os.path.splitext(os.path.basename(filename))[0]
         header_fname = blockname + '.h'
         blockname = blockname.replace(self._info['modname']+'_', '', 1)
-        code_h  = open('include/'+header_fname).read()
+        parser = ParserCCBlock(filename, header_fname, blockname)
         block_data = {}
-        make_regex = '(?<=_API)\s+%s_%s_sptr\s+%s_make_%s\s+\(([^)]*)\)' % (
-                self._info['modname'], blockname,
-                self._info['modname'], blockname)
-        make_re = re.compile(make_regex, re.MULTILINE)
-        make_match = make_re.search(code_h)
-        iosig_regex = 'gr_make_io_signature\s*\(\s*([^,]+),\s*([^,]+),\s*([^,]+)\),\s*' + \
-                      'gr_make_io_signature\s*\(\s*([^,]+),\s*([^,]+),\s*([^,{]+)\)\)\s*{'
-        iosig_re = re.compile(iosig_regex, re.MULTILINE)
-        iosig_match = iosig_re.search(code_cc)
-        # Go through params
-        try:
-            params = []
-            for param in make_match.groups()[0].split(','):
-                p_split = param.strip().split('=')
-                if len(p_split) == 2:
-                    default_v = p_split[1].strip()
-                else:
-                    default_v = ''
-                (p_type, p_name) = [x for x in p_split[0].strip().split() if x != '']
-                params.append({'key': p_name, 'type': _type_translate(p_type, default_v), 'default': default_v})
-        except ValueError:
-            print "Error: Can't parse this: ", make_match.groups()[0]
-            sys.exit(1)
-        # Go through io signatures
-        try:
-            in_sig  = {'min_ports': iosig_match.groups()[0], 'max_ports': iosig_match.groups()[1]}
-            out_sig = {'min_ports': iosig_match.groups()[3], 'max_ports': iosig_match.groups()[4]}
-            if is_number(in_sig['max_ports']) and int(in_sig['max_ports'].isdigit()) == -1:
-                in_sig['max_ports'] = '$num_inputs'
-                params.append({'name': 'Num inputs', 'key': 'num_inputs', 'type': 'int', 'default': 2})
-            if out_sig['max_ports'].isdigit() and int(out_sig['max_ports'].isdigit()) == -1:
-                out_sig['max_ports'] = '$num_outputs'
-                params.append({'name': 'Num outputs', 'key': 'num_outputs', 'type': 'int', 'default': 2})
-            io_type_re = re.compile('sizeof\s*\(([^)]\)')
-            i_type = _type_translate(io_type_re.search(iosig_match.groups()[2]).groups()[0])
-            o_type = _type_translate(io_type_re.search(iosig_match.groups()[5]).groups()[0])
-            i_vlen = iosig_match.groups()[0].split('*')
-            for fac in i_vlen:
-                if fac.find('sizeof') != -1:
-                    i_vlen.remove(fac)
-            if len(i_vlen) == 1:
-                i_vlen = i_vlen[0]
-                if is_number(i_vlen)
-                in_sig['nports'] 
-                # Check if number or str
-            elif len(i_vlen) > 1:
-                i_vlen = '*'.join(i_vlen)
 
-        except ValueError:
-            print "Error: Can't parse io signatures."
-            sys.exit(1)
+        params = parser.read_params()
+        iosig = parser.read_io_signature()
 
+        # Adapt for GRC
+        if is_number(iosig['in']['max_ports']) and int(iosig['in']['max_ports'].isdigit()) == -1:
+            iosig['in']['max_ports'] = '$num_inputs'
+            params.append({'name': 'Num inputs', 'key': 'num_inputs', 'type': 'int', 'default': 2})
+        if iosig['out']['max_ports'].isdigit() and int(iosig['out']['max_ports'].isdigit()) == -1:
+            iosig['out']['max_ports'] = '$num_outputs'
+            params.append({'name': 'Num outputs', 'key': 'num_outputs', 'type': 'int', 'default': 2})
 
 
 

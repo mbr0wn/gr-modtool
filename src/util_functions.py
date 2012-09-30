@@ -76,3 +76,10 @@ def get_class_dict():
             pass
     return classdict
 
+def is_number(s):
+    " Return True if the string s contains a number. "
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
