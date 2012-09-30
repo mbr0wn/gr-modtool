@@ -68,9 +68,3 @@ class ParserCCBlock(object):
             sys.exit(1)
         return params
 
-
-if __name__=="__main__":
-    parser = ParserCCBlock('digital_descrambler_bb.cc', 'digital_descrambler_bb.h', 'descrambler_bb')
-    #print parser.read_io_signature()
-    print parser.read_params()
-

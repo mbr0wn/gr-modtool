@@ -30,6 +30,8 @@ LIST_OF_FILES = (
         'modtool_rm.py',
         'newmod_tarfile.py', 
         'modtool_newmod.py',
+        'parser_cc_block.py',
+        'modtool_makexml.py',
         'modtool_help.py',
         'gr_modtool.py')
 
