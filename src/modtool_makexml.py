@@ -1,14 +1,15 @@
 """ Automatically create XML bindings for GRC from block code """
 
+import sys
 import os
 import re
-import sys
 import glob
-import xml.dom.minidom as minidom
 from optparse import OptionGroup
 
-from util_functions import remove_pattern_from_file, is_number
+from util_functions import is_number
 from modtool_base import ModTool
+from parser_cc_block import ParserCCBlock
+from grc_xml_generator import GRCXMLGenerator
 from cmakefile_editor import CMakeFileEditor
 
 ### Remove module ###########################################################
@@ -52,6 +53,8 @@ class ModToolMakeXML(ModTool):
         if not self._skip_subdirs['lib']:
             files = self._search_files('lib', '*.cc')
             for f in files:
+                if os.path.basename(f)[0:2] == 'qa':
+                    continue
                 block_data = self._parse_cc_h(f)
                 # Check if overwriting
                 # Check if exists in CMakeLists.txt
@@ -71,43 +74,57 @@ class ModToolMakeXML(ModTool):
         return files_filt
 
 
-    def _parse_cc_h(self, filename):
+    def _parse_cc_h(self, fname_cc):
         """ Go through a .cc and .h-file defining a block and info """
-        def _type_translate(p_type, default_v):
-            TRANS = {'float': 'real', 'double': 'real', 'gr_complex': 'complex'}
-            if p_type in TRANS.keys():
-                return TRANS[p_type]
-            if default_v[0:2] == '0x' and p_type == 'int':
+        def _type_translate(p_type, default_v=None):
+            """ Translates a type from C++ to GRC """
+            translate_dict = {'float': 'real',
+                              'double': 'real',
+                              'gr_complex': 'complex'}
+            if p_type in translate_dict.keys():
+                return translate_dict[p_type]
+            if default_v is not None and default_v[0:2] == '0x' and p_type == 'int':
                 return 'hex'
             return p_type
-
-        blockname = os.path.splitext(os.path.basename(filename))[0]
-        header_fname = blockname + '.h'
-        blockname = blockname.replace(self._info['modname']+'_', '', 1)
-        parser = ParserCCBlock(filename, header_fname, blockname)
-        block_data = {}
-
+        def _get_blockdata(fname_cc):
+            """ Return the block name and the header file name from the .cc file name """
+            blockname = os.path.splitext(os.path.basename(fname_cc))[0]
+            fname_h = blockname + '.h'
+            blockname = blockname.replace(self._info['modname']+'_', '', 1) # Deprecate 3.7
+            fname_xml = '%s_%s.xml' % (self._info['modname'], blockname)
+            return (blockname, fname_h, fname_xml)
+        # Go, go, go
+        (blockname, fname_h, fname_xml) = _get_blockdata(fname_cc)
+        try:
+            parser = ParserCCBlock(fname_cc,
+                                   os.path.join('include', fname_h),
+                                   blockname, _type_translate
+                                  )
+        except IOError:
+            print "Can't open some of the files necessary to parse %s." % fname_cc
+            sys.exit(1)
         params = parser.read_params()
         iosig = parser.read_io_signature()
-
-        # Adapt for GRC
-        if is_number(iosig['in']['max_ports']) and int(iosig['in']['max_ports'].isdigit()) == -1:
-            iosig['in']['max_ports'] = '$num_inputs'
-            params.append({'name': 'Num inputs', 'key': 'num_inputs', 'type': 'int', 'default': 2})
-        if iosig['out']['max_ports'].isdigit() and int(iosig['out']['max_ports'].isdigit()) == -1:
-            iosig['out']['max_ports'] = '$num_outputs'
-            params.append({'name': 'Num outputs', 'key': 'num_outputs', 'type': 'int', 'default': 2})
-
-
-
-
-        # Figure out:
-        # name, key from blockname
-        # import statement
-        # params (default value, type)
-        # # sinks, # sources (types)
-
-
-
-
+        # Some adaptions for the GRC
+        for inout in ('in', 'out'):
+            if iosig[inout]['max_ports'] == '-1':
+                iosig[inout]['max_ports'] = '$num_%sputs' % inout
+                params.append({'key': 'num_%sputs' % inout,
+                               'type': 'int',
+                               'name': 'Num %sputs' % inout,
+                               'default': '2',
+                               'in_constructor': False})
+        # Make some XML!
+        grc_generator = GRCXMLGenerator(
+                modname=self._info['modname'],
+                blockname=blockname,
+                params=params,
+                iosig=iosig
+        )
+        grc_generator.save(os.path.join('grc', fname_xml))
+        # Make sure the XML is in the CMakeLists.txt
+        if not self._skip_subdirs['grc']:
+            ed = CMakeFileEditor(os.path.join('grc', 'CMakeLists.txt'))
+            if re.search(fname_xml, ed.cfile) is None:
+                ed.append_value('install', fname_grc, 'DESTINATION[^()]+')
 

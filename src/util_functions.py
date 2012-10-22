@@ -50,6 +50,16 @@ def str_to_python_comment(text):
     """ Return a string as a Python formatted comment. """
     return re.compile('^', re.MULTILINE).sub('# ', text)
 
+def strip_default_values(string):
+    """ Strip default values from a C++ argument list. """
+    return re.sub(' *=[^,)]*', '', string)
+
+def strip_arg_types(string):
+    """" Strip the argument types from a list of arguments
+    Example: "int arg1, double arg2" -> "arg1, arg2" """
+    string = strip_default_values(string)
+    return ", ".join([part.strip().split(' ')[-1] for part in string.split(',')])
+
 def get_modname():
     """ Grep the current module's name from gnuradio.project """
     try:
