@@ -16,6 +16,7 @@ class ModTool(object):
         self._has_subdirs = {}
         self._skip_subdirs = {}
         self._info = {}
+        self._file = {}
         for subdir in self._subdirs:
             self._has_subdirs[subdir] = False
             self._skip_subdirs[subdir] = False
@@ -47,6 +48,16 @@ class ModTool(object):
         parser.add_option_group(ogroup)
         return parser
 
+    def _setup_files(self):
+        """ Initialise the self._file[] dictionary """
+        self._file['swig'] = os.path.join('swig', self._get_mainswigfile())
+        self._file['qalib'] = os.path.join('lib', 'qa_%s.cc' % self._info['modname'])
+        self._file['pyinit'] = os.path.join('python', '__init__.py')
+        self._file['cmlib'] = os.path.join('lib', 'CMakeLists.txt')
+        self._file['cmgrc'] = os.path.join('grc', 'CMakeLists.txt')
+        self._file['cmpython'] = os.path.join('python', 'CMakeLists.txt')
+        self._file['cminclude'] = os.path.join('include', 'CMakeLists.txt')
+        self._file['cmswig'] = os.path.join('swig', 'CMakeLists.txt')
 
     def setup(self):
         """ Initialise all internal variables, such as the module name etc. """
@@ -74,6 +85,7 @@ class ModTool(object):
         print "GNU Radio module name identified: " + self._info['modname']
         self._info['blockname'] = options.block_name
         self.options = options
+        self._setup_files()
 
 
     def run(self):

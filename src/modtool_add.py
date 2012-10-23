@@ -165,10 +165,10 @@ class ModToolAdd(ModTool):
             self._write_tpl('noblock_h', 'include', fname_h)
             self._write_tpl('noblock_cpp', 'lib', fname_cc)
         if not self.options.skip_cmakefiles:
-            ed = CMakeFileEditor('lib/CMakeLists.txt')
+            ed = CMakeFileEditor(self._file['cmlib'])
             ed.append_value('add_library', fname_cc)
             ed.write()
-            ed = CMakeFileEditor('include/CMakeLists.txt', '\n    ')
+            ed = CMakeFileEditor(self._file['cminclude'], '\n    ')
             ed.append_value('install', fname_h, 'DESTINATION[^()]+')
             ed.write()
         if not self._add_cc_qa:
@@ -187,37 +187,30 @@ class ModToolAdd(ModTool):
                         )
                      )
             )
-            ed = CMakeFileEditor('lib/CMakeLists.txt')
+            ed = CMakeFileEditor(self._file['cmlib'])
             ed.remove_double_newlines()
             ed.write()
-
-
 
     def _run_swig(self):
         """ Do everything that needs doing in the subdir 'swig'.
         - Edit main *.i file
         """
         print "Traversing swig..."
-        fname_mainswig = self._get_mainswigfile()
-        if fname_mainswig is None:
-            print 'Warning: No main swig file found.'
-            return
-        fname_mainswig = os.path.join('swig', fname_mainswig)
-        print "Editing %s..." % fname_mainswig
+        print "Editing %s..." % self._file['swig']
         swig_block_magic_str = '\nGR_SWIG_BLOCK_MAGIC(%s,%s);\n%%include "%s"\n' % (
                                    self._info['modname'],
                                    self._info['blockname'],
                                    self._info['fullblockname'] + '.h')
-        if re.search('#include', open(fname_mainswig, 'r').read()):
-            append_re_line_sequence(fname_mainswig, '^#include.*\n',
+        if re.search('#include', open(self._file['swig'], 'r').read()):
+            append_re_line_sequence(self._file['swig'], '^#include.*\n',
                     '#include "%s.h"' % self._info['fullblockname'])
         else: # I.e., if the swig file is empty
-            oldfile = open(fname_mainswig, 'r').read()
+            oldfile = open(self._file['swig'], 'r').read()
             regexp = re.compile('^%\{\n', re.MULTILINE)
             oldfile = regexp.sub('%%{\n#include "%s.h"\n' % self._info['fullblockname'],
                                  oldfile, count=1)
-            open(fname_mainswig, 'w').write(oldfile)
-        open(fname_mainswig, 'a').write(swig_block_magic_str)
+            open(self._file['swig'], 'w').write(oldfile)
+        open(self._file['swig'], 'a').write(swig_block_magic_str)
 
 
     def _run_python_qa(self):
@@ -231,7 +224,7 @@ class ModToolAdd(ModTool):
         self._write_tpl('qa_python', 'python', fname_py_qa)
         os.chmod(os.path.join('python', fname_py_qa), 0755)
         print "Editing python/CMakeLists.txt..."
-        open('python/CMakeLists.txt', 'a').write(
+        open(self._file['cmpython'], 'a').write(
                 'GR_ADD_TEST(qa_%s ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/%s)\n' % \
                   (self._info['blockname'], fname_py_qa))
 
@@ -244,7 +237,7 @@ class ModToolAdd(ModTool):
         print "Traversing python..."
         fname_py = self._info['blockname'] + '.py'
         self._write_tpl('hier_python', 'python', fname_py)
-        ed = CMakeFileEditor('python/CMakeLists.txt')
+        ed = CMakeFileEditor(self._file['cmpython'])
         ed.append_value('GR_PYTHON_INSTALL', fname_py, 'DESTINATION[^()]+')
         ed.write()
 
@@ -258,7 +251,7 @@ class ModToolAdd(ModTool):
         fname_grc = self._info['fullblockname'] + '.xml'
         self._write_tpl('grc_xml', 'grc', fname_grc)
         print "Editing grc/CMakeLists.txt..."
-        ed = CMakeFileEditor('grc/CMakeLists.txt', '\n    ')
+        ed = CMakeFileEditor(self._file['cmgrc'], '\n    ')
         ed.append_value('install', fname_grc, 'DESTINATION[^()]+')
         ed.write()
 
