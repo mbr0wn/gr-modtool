@@ -17,11 +17,30 @@ class ParserCCBlock(object):
 
     def read_io_signature(self):
         """ Scans a .cc file for an IO signature. """
-        def _figure_out_vlen(typestr):
+        def _figure_out_iotype_and_vlen(iosigcall, typestr):
+            """ From a type identifier, returns the data type.
+            E.g., for sizeof(int), it will return 'int'.
+            Returns a list! """
+            if 'gr_make_iosignaturev' in iosigcall:
+                print 'tbi'
+                raise ValueError
+            return {'type': [_typestr_to_iotype(x) for x in typestr.split(',')],
+                    'vlen': [_typestr_to_vlen(x)   for x in typestr.split(',')]
+                   }
+        def _typestr_to_iotype(typestr):
+            """ Convert a type string (e.g. sizeof(int) * vlen) to the type (e.g. 'int'). """
+            type_match = re.search('sizeof\s*\(([^)]*)\)', typestr)
+            if type_match is None:
+                return self.type_trans('char')
+            return self.type_trans(type_match.group(1))
+        def _typestr_to_vlen(typestr):
             """ From a type identifier, returns the vector length of the block's
             input/out. E.g., for 'sizeof(int) * 10', it returns 10. For
-            'sizeof(int)', it returns 1. For 'sizeof(int) * vlen', it returns
+            'sizeof(int)', it returns '1'. For 'sizeof(int) * vlen', it returns
             the string vlen. """
+            # Catch fringe case where no sizeof() is given
+            if typestr.find('sizeof') == -1:
+                return typestr
             if typestr.find('*') == -1:
                 return '1'
             vlen_parts = typestr.split('*')
@@ -33,24 +52,25 @@ class ParserCCBlock(object):
             elif len(vlen_parts) > 1:
                 return '*'.join(vlen_parts).strip()
         iosig = {}
-        iosig_regex = 'gr_make_io_signature\s*\(\s*([^,]+),\s*([^,]+),\s*([^,]+)\),\s*' + \
-                      'gr_make_io_signature\s*\(\s*([^,]+),\s*([^,]+),\s*([^,{]+)\)\)\s*[{,]'
+        iosig_regex = '(?P<incall>gr_make_io_signature[23v]?)\s*\(\s*(?P<inmin>[^,]+),\s*(?P<inmax>[^,]+),' + \
+                      '\s*(?P<intype>(\([^\)]*\)|[^)])+)\),\s*' + \
+                      '(?P<outcall>gr_make_io_signature[23v]?)\s*\(\s*(?P<outmin>[^,]+),\s*(?P<outmax>[^,]+),' + \
+                      '\s*(?P<outtype>(\([^\)]*\)|[^)])+)\)'
         iosig_match = re.compile(iosig_regex, re.MULTILINE).search(self.code_cc)
         try:
-            io_type_re = re.compile('sizeof\s*\(([^)]*)\)')
-            iosig['in']  = {'min_ports': iosig_match.groups()[0],
-                            'max_ports': iosig_match.groups()[1],
-                            'type': self.type_trans(io_type_re.search(iosig_match.groups()[2]).groups()[0]),
-                            'vlen': _figure_out_vlen(iosig_match.groups()[2])
-                           }
-            iosig['out'] = {'min_ports': iosig_match.groups()[3],
-                            'max_ports': iosig_match.groups()[4],
-                            'type': self.type_trans(io_type_re.search(iosig_match.groups()[5]).groups()[0]),
-                            'vlen': _figure_out_vlen(iosig_match.groups()[5])
-                           }
-        except ValueError:
-            print "Error: Can't parse io signatures."
-            sys.exit(1)
+            iosig['in'] = _figure_out_iotype_and_vlen(iosig_match.group('incall'),
+                                                      iosig_match.group('intype'))
+            iosig['in']['min_ports'] = iosig_match.group('inmin')
+            iosig['in']['max_ports'] = iosig_match.group('inmax')
+        except ValueError, Exception:
+            print "Error: Can't parse input signature."
+        try:
+            iosig['out'] = _figure_out_iotype_and_vlen(iosig_match.group('outcall'),
+                                                       iosig_match.group('outtype'))
+            iosig['out']['min_ports'] = iosig_match.group('outmin')
+            iosig['out']['max_ports'] = iosig_match.group('outmax')
+        except ValueError, Exception:
+            print "Error: Can't parse output signature."
         return iosig
 
     def read_params(self):
@@ -75,9 +95,4 @@ class ParserCCBlock(object):
             print "Error: Can't parse this: ", make_match.groups()[0]
             sys.exit(1)
         return params
-
-if __name__ == "__main__":
-    parser = ParserCCBlock('digital_descrambler_bb.cc', 'digital_descrambler_bb.h', 'descrambler_bb')
-    print parser.read_io_signature()
-    print parser.read_params()
 

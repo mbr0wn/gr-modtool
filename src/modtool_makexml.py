@@ -80,11 +80,13 @@ class ModToolMakeXML(ModTool):
             """ Translates a type from C++ to GRC """
             translate_dict = {'float': 'real',
                               'double': 'real',
-                              'gr_complex': 'complex'}
-            if p_type in translate_dict.keys():
-                return translate_dict[p_type]
+                              'gr_complex': 'complex',
+                              'char': 'byte',
+                              'unsigned char': 'byte'}
             if default_v is not None and default_v[0:2] == '0x' and p_type == 'int':
                 return 'hex'
+            if p_type in translate_dict.keys():
+                return translate_dict[p_type]
             return p_type
         def _get_blockdata(fname_cc):
             """ Return the block name and the header file name from the .cc file name """
@@ -94,6 +96,7 @@ class ModToolMakeXML(ModTool):
             fname_xml = '%s_%s.xml' % (self._info['modname'], blockname)
             return (blockname, fname_h, fname_xml)
         # Go, go, go
+        print "Making GRC bindings for %s..." % fname_cc
         (blockname, fname_h, fname_xml) = _get_blockdata(fname_cc)
         try:
             parser = ParserCCBlock(fname_cc,
@@ -126,5 +129,6 @@ class ModToolMakeXML(ModTool):
         if not self._skip_subdirs['grc']:
             ed = CMakeFileEditor(os.path.join('grc', 'CMakeLists.txt'))
             if re.search(fname_xml, ed.cfile) is None:
-                ed.append_value('install', fname_grc, 'DESTINATION[^()]+')
+                ed.append_value('install', fname_xml, 'DESTINATION[^()]+')
+                ed.write()
 

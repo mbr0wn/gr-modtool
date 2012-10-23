@@ -1,5 +1,9 @@
 import xml.etree.ElementTree as ET
-import lxml.etree
+try:
+    import lxml.etree
+    LXML_IMPORTED = True
+except ImportError:
+    LXML_IMPORTED = False
 
 #from xml.etree import ElementTree
 #def indent(elem, level=0):
@@ -20,6 +24,8 @@ import lxml.etree
 #root = ElementTree.parse('/tmp/xmlfile').getroot()
 #indent(root)
 
+from util_functions import is_number
+
 class GRCXMLGenerator(object):
     def __init__(self, modname=None, blockname=None, doc=None, params=None, iosig=None):
         """docstring for __init__"""
@@ -37,6 +43,7 @@ class GRCXMLGenerator(object):
 
     def make_xml(self):
         root = ET.Element("block")
+        iosig = self.iosig
         for tag in self._header.keys():
             this_tag = ET.SubElement(root, tag)
             this_tag.text = self._header[tag]
@@ -46,20 +53,25 @@ class GRCXMLGenerator(object):
             ET.SubElement(param_tag, 'key').text = param['key']
             ET.SubElement(param_tag, 'type').text = param['type']
             ET.SubElement(param_tag, 'value').text = param['default']
-        #if self.iosig['in']['max_ports'] > 0:
-            #sink_tag = ET.SubElement(root, 'sink')
-            #ET.SubElement(sink_tag, 'name').text('in')
-            #ET.SubElement(sink_tag, 'type').text(self.iosig['in']['type'])
-            #if self.iosig['in']['vlen'] != '1':
-                #ET.SubElement(sink_tag, 'vlen').text(param['vlen']) # FIXME this might trigger another param..?
-        #if self.iosig['out']['max_ports'] > 0:
-            #sink_tag = ET.SubElement(root, 'source')
-            #ET.SubElement(sink_tag, 'name').text('out')
-            #ET.SubElement(sink_tag, 'type').text(self.iosig['in']['type'])
-            #if self.iosig['in']['vlen'] != '1':
-                #ET.SubElement(sink_tag, 'vlen').text(param['vlen']) # FIXME this might trigger another param..?
-        #if self.doc is not None or len(self.doc):
-            #ET.SubElement(root, 'doc').text(self.doc)
+        for inout in iosig.keys():
+            for i in range(len(iosig[inout]['type'])):
+                s_tag = ET.SubElement(root, {'in': 'sink', 'out': 'source'}[inout])
+                ET.SubElement(s_tag, 'name').text = inout
+                ET.SubElement(s_tag, 'type').text = iosig[inout]['type'][i]
+                if iosig[inout]['vlen'][i] != '1':
+                    vlen = iosig[inout]['vlen'][i]
+                    if is_number(vlen):
+                        ET.SubElement(s_tag, 'vlen').text = vlen
+                    else:
+                        ET.SubElement(s_tag, 'vlen').text = '$'+vlen
+                if i == len(iosig[inout]['type'])-1:
+                    if not is_number(iosig[inout]['max_ports']):
+                        ET.SubElement(s_tag, 'nports').text = iosig[inout]['max_ports']
+                    elif len(iosig[inout]['type']) < int(iosig[inout]['max_ports']):
+                        ET.SubElement(s_tag, 'nports').text = str(int(iosig[inout]['max_ports']) -
+                                                                  len(iosig[inout]['type'])+1)
+        if self.doc is not None:
+            ET.SubElement(root, 'doc').text = self.doc
         #tree = ET.ElementTree(root)
         self.root = root
 
