@@ -27,6 +27,7 @@ import tarfile
 from datetime import datetime
 from optparse import OptionParser, OptionGroup
 from string import Template
+import xml.etree.ElementTree as ET
 
 ### Utility functions ########################################################
 def get_command_from_argv(possible_cmds):
@@ -75,6 +76,16 @@ def str_to_python_comment(text):
     """ Return a string as a Python formatted comment. """
     return re.compile('^', re.MULTILINE).sub('# ', text)
 
+def strip_default_values(string):
+    """ Strip default values from a C++ argument list. """
+    return re.sub(' *=[^,)]*', '', string)
+
+def strip_arg_types(string):
+    """" Strip the argument types from a list of arguments
+    Example: "int arg1, double arg2" -> "arg1, arg2" """
+    string = strip_default_values(string)
+    return ", ".join([part.strip().split(' ')[-1] for part in string.split(',')])
+
 def get_modname():
     """ Grep the current module's name from gnuradio.project """
     try:
@@ -101,6 +112,29 @@ def get_class_dict():
             pass
     return classdict
 
+def is_number(s):
+    " Return True if the string s contains a number. "
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+def xml_indent(elem, level=0):
+    """ Adds indents to XML for pretty printing """
+    i = "\n" + level*"    "
+    if len(elem):
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "    "
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        for elem in elem:
+            xml_indent(elem, level+1)
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
 ### Templates ################################################################
 Templates = {}
 # Default licence
@@ -403,7 +437,6 @@ gr_modtool.py help <command> -- Shows the help for a given command. """
 class CodeGenerator(object):
     """ Creates the skeleton files. """
     def __init__(self):
-        self.defvalpatt = re.compile(" *=[^,)]*")
         self.grtypelist = {
                 'sync': 'gr_sync_block',
                 'decimator': 'gr_sync_decimator',
@@ -411,16 +444,6 @@ class CodeGenerator(object):
                 'general': 'gr_block',
                 'hiercpp': 'gr_hier_block2',
                 'impl': ''}
-
-    def strip_default_values(self, string):
-        """ Strip default values from a C++ argument list. """
-        return self.defvalpatt.sub("", string)
-
-    def strip_arg_types(self, string):
-        """" Strip the argument types from a list of arguments
-        Example: "int arg1, double arg2" -> "arg1, arg2" """
-        string = self.strip_default_values(string)
-        return ", ".join([part.strip().split(' ')[-1] for part in string.split(',')])
 
     def get_template(self, tpl_id, **kwargs):
         ''' Request a skeleton file from a template.
@@ -433,8 +456,8 @@ class CodeGenerator(object):
         elif tpl_id in ('qa_python', 'hier_python'):
             kwargs['license'] = str_to_python_comment(kwargs['license'])
         # Standard values for templates
-        kwargs['argliststripped'] = self.strip_default_values(kwargs['arglist'])
-        kwargs['arglistnotypes'] = self.strip_arg_types(kwargs['arglist'])
+        kwargs['argliststripped'] = strip_default_values(kwargs['arglist'])
+        kwargs['arglistnotypes'] = strip_arg_types(kwargs['arglist'])
         kwargs['fullblocknameupper'] = kwargs['fullblockname'].upper()
         kwargs['modnameupper'] = kwargs['modname'].upper()
         kwargs['grblocktype'] = self.grtypelist[kwargs['blocktype']]
@@ -2250,6 +2273,301 @@ class ModToolNewModule(ModTool):
         print "Done."
         print "Use 'gr_modtool add' to add a new block to this currently empty module."
 
+
+### Parser for CC blocks ####################################################
+def dummy_translator(the_type, default_v=None):
+    """ Doesn't really translate. """
+    return the_type
+
+class ParserCCBlock(object):
+    """ Class to read blocks written in C++ """
+    def __init__(self, filename_cc, filename_h, blockname, type_trans=dummy_translator):
+        self.code_cc = open(filename_cc).read()
+        self.code_h  = open(filename_h).read()
+        self.blockname = blockname
+        self.type_trans = type_trans
+
+    def read_io_signature(self):
+        """ Scans a .cc file for an IO signature. """
+        def _figure_out_iotype_and_vlen(iosigcall, typestr):
+            """ From a type identifier, returns the data type.
+            E.g., for sizeof(int), it will return 'int'.
+            Returns a list! """
+            if 'gr_make_iosignaturev' in iosigcall:
+                print 'tbi'
+                raise ValueError
+            return {'type': [_typestr_to_iotype(x) for x in typestr.split(',')],
+                    'vlen': [_typestr_to_vlen(x)   for x in typestr.split(',')]
+                   }
+        def _typestr_to_iotype(typestr):
+            """ Convert a type string (e.g. sizeof(int) * vlen) to the type (e.g. 'int'). """
+            type_match = re.search('sizeof\s*\(([^)]*)\)', typestr)
+            if type_match is None:
+                return self.type_trans('char')
+            return self.type_trans(type_match.group(1))
+        def _typestr_to_vlen(typestr):
+            """ From a type identifier, returns the vector length of the block's
+            input/out. E.g., for 'sizeof(int) * 10', it returns 10. For
+            'sizeof(int)', it returns '1'. For 'sizeof(int) * vlen', it returns
+            the string vlen. """
+            # Catch fringe case where no sizeof() is given
+            if typestr.find('sizeof') == -1:
+                return typestr
+            if typestr.find('*') == -1:
+                return '1'
+            vlen_parts = typestr.split('*')
+            for fac in vlen_parts:
+                if fac.find('sizeof') != -1:
+                    vlen_parts.remove(fac)
+            if len(vlen_parts) == 1:
+                return vlen_parts[0].strip()
+            elif len(vlen_parts) > 1:
+                return '*'.join(vlen_parts).strip()
+        iosig = {}
+        iosig_regex = '(?P<incall>gr_make_io_signature[23v]?)\s*\(\s*(?P<inmin>[^,]+),\s*(?P<inmax>[^,]+),' + \
+                      '\s*(?P<intype>(\([^\)]*\)|[^)])+)\),\s*' + \
+                      '(?P<outcall>gr_make_io_signature[23v]?)\s*\(\s*(?P<outmin>[^,]+),\s*(?P<outmax>[^,]+),' + \
+                      '\s*(?P<outtype>(\([^\)]*\)|[^)])+)\)'
+        iosig_match = re.compile(iosig_regex, re.MULTILINE).search(self.code_cc)
+        try:
+            iosig['in'] = _figure_out_iotype_and_vlen(iosig_match.group('incall'),
+                                                      iosig_match.group('intype'))
+            iosig['in']['min_ports'] = iosig_match.group('inmin')
+            iosig['in']['max_ports'] = iosig_match.group('inmax')
+        except ValueError, Exception:
+            print "Error: Can't parse input signature."
+        try:
+            iosig['out'] = _figure_out_iotype_and_vlen(iosig_match.group('outcall'),
+                                                       iosig_match.group('outtype'))
+            iosig['out']['min_ports'] = iosig_match.group('outmin')
+            iosig['out']['max_ports'] = iosig_match.group('outmax')
+        except ValueError, Exception:
+            print "Error: Can't parse output signature."
+        return iosig
+
+    def read_params(self):
+        """ Read the parameters required to initialize the block """
+        make_regex = '(?<=_API)\s+\w+_sptr\s+\w+_make_\w+\s*\(([^)]*)\)'
+        make_match = re.compile(make_regex, re.MULTILINE).search(self.code_h)
+        # Go through params
+        params = []
+        try:
+            param_str = make_match.group(1).strip()
+            if len(param_str) == 0:
+                return params
+            for param in param_str.split(','):
+                p_split = param.strip().split('=')
+                if len(p_split) == 2:
+                    default_v = p_split[1].strip()
+                else:
+                    default_v = ''
+                (p_type, p_name) = [x for x in p_split[0].strip().split() if x != '']
+                params.append({'key': p_name,
+                               'type': self.type_trans(p_type, default_v),
+                               'default': default_v,
+                               'in_constructor': True})
+        except ValueError:
+            print "Error: Can't parse this: ", make_match.group(0)
+            sys.exit(1)
+        return params
+
+### GRC XML Generator ########################################################
+try:
+    import lxml.etree
+    LXML_IMPORTED = True
+except ImportError:
+    LXML_IMPORTED = False
+
+class GRCXMLGenerator(object):
+    """ Create and write the XML bindings for a GRC block. """
+    def __init__(self, modname=None, blockname=None, doc=None, params=None, iosig=None):
+        """docstring for __init__"""
+        params_list = ['$'+s['key'] for s in params if s['in_constructor']]
+        self._header = {'name': blockname.capitalize(),
+                        'key': '%s_%s' % (modname, blockname),
+                        'category': modname.upper(),
+                        'import': 'import %s' % modname,
+                        'make': '%s.%s(%s)' % (modname, blockname, ', '.join(params_list))
+                       }
+        self.params = params
+        self.iosig = iosig
+        self.doc = doc
+        self.root = None
+        if LXML_IMPORTED:
+            self._prettyprint = self._lxml_prettyprint
+        else:
+            self._prettyprint = self._manual_prettyprint
+
+    def _lxml_prettyprint(self):
+        """ XML pretty printer using lxml """
+        return lxml.etree.tostring(
+                   lxml.etree.fromstring(ET.tostring(self.root, encoding="UTF-8")),
+                   pretty_print=True
+               )
+
+    def _manual_prettyprint(self):
+        """ XML pretty printer using xml_indent """
+        xml_indent(self.root)
+        return ET.tostring(self.root, encoding="UTF-8")
+
+    def make_xml(self):
+        """ Create the actual tag tree """
+        root = ET.Element("block")
+        iosig = self.iosig
+        for tag in self._header.keys():
+            this_tag = ET.SubElement(root, tag)
+            this_tag.text = self._header[tag]
+        for param in self.params:
+            param_tag = ET.SubElement(root, 'param')
+            ET.SubElement(param_tag, 'name').text = param['key'].capitalize()
+            ET.SubElement(param_tag, 'key').text = param['key']
+            ET.SubElement(param_tag, 'type').text = param['type']
+            ET.SubElement(param_tag, 'value').text = param['default']
+        for inout in sorted(iosig.keys()):
+            for i in range(len(iosig[inout]['type'])):
+                s_tag = ET.SubElement(root, {'in': 'sink', 'out': 'source'}[inout])
+                ET.SubElement(s_tag, 'name').text = inout
+                ET.SubElement(s_tag, 'type').text = iosig[inout]['type'][i]
+                if iosig[inout]['vlen'][i] != '1':
+                    vlen = iosig[inout]['vlen'][i]
+                    if is_number(vlen):
+                        ET.SubElement(s_tag, 'vlen').text = vlen
+                    else:
+                        ET.SubElement(s_tag, 'vlen').text = '$'+vlen
+                if i == len(iosig[inout]['type'])-1:
+                    if not is_number(iosig[inout]['max_ports']):
+                        ET.SubElement(s_tag, 'nports').text = iosig[inout]['max_ports']
+                    elif len(iosig[inout]['type']) < int(iosig[inout]['max_ports']):
+                        ET.SubElement(s_tag, 'nports').text = str(int(iosig[inout]['max_ports']) -
+                                                                  len(iosig[inout]['type'])+1)
+        if self.doc is not None:
+            ET.SubElement(root, 'doc').text = self.doc
+        self.root = root
+
+    def save(self, filename):
+        """ Write the XML file """
+        self.make_xml()
+        open(filename, 'w').write(self._prettyprint())
+
+### Remove module ###########################################################
+class ModToolMakeXML(ModTool):
+    """ Make XML file for GRC block bindings """
+    name = 'makexml'
+    aliases = ('mx',)
+    def __init__(self):
+        ModTool.__init__(self)
+
+    def setup_parser(self):
+        " Initialise the option parser for 'gr_modtool.py makexml' "
+        parser = ModTool.setup_parser(self)
+        parser.usage = '%prog makexml [options]. \n Call %prog without any options to run it interactively.'
+        ogroup = OptionGroup(parser, "Make XML module options")
+        ogroup.add_option("-p", "--pattern", type="string", default=None,
+                help="Filter possible choices for blocks to be parsed.")
+        ogroup.add_option("-y", "--yes", action="store_true", default=False,
+                help="Answer all questions with 'yes'. This can overwrite existing files!")
+        parser.add_option_group(ogroup)
+        return parser
+
+    def setup(self):
+        ModTool.setup(self)
+        options = self.options
+        if options.pattern is not None:
+            self._info['pattern'] = options.pattern
+        elif options.block_name is not None:
+            self._info['pattern'] = options.block_name
+        elif len(self.args) >= 2:
+            self._info['pattern'] = self.args[1]
+        else:
+            self._info['pattern'] = raw_input('Which blocks do you want to parse? (Regex): ')
+        if len(self._info['pattern']) == 0:
+            self._info['pattern'] = '.'
+        self._info['yes'] = options.yes
+
+    def run(self):
+        """ Go, go, go! """
+        # 1) Go through lib/
+        if not self._skip_subdirs['lib']:
+            files = self._search_files('lib', '*.cc')
+            for f in files:
+                if os.path.basename(f)[0:2] == 'qa':
+                    continue
+                block_data = self._parse_cc_h(f)
+                # Check if overwriting
+                # Check if exists in CMakeLists.txt
+        # 2) Go through python/
+
+
+    def _search_files(self, path, path_glob):
+        """ Search for files matching pattern in the given path. """
+        files = glob.glob("%s/%s"% (path, path_glob))
+        files_filt = []
+        print "Searching for matching files in %s/:" % path
+        for f in files:
+            if re.search(self._info['pattern'], os.path.basename(f)) is not None:
+                files_filt.append(f)
+        if len(files_filt) == 0:
+            print "None found."
+        return files_filt
+
+
+    def _parse_cc_h(self, fname_cc):
+        """ Go through a .cc and .h-file defining a block and info """
+        def _type_translate(p_type, default_v=None):
+            """ Translates a type from C++ to GRC """
+            translate_dict = {'float': 'real',
+                              'double': 'real',
+                              'gr_complex': 'complex',
+                              'char': 'byte',
+                              'unsigned char': 'byte'}
+            if default_v is not None and default_v[0:2] == '0x' and p_type == 'int':
+                return 'hex'
+            if p_type in translate_dict.keys():
+                return translate_dict[p_type]
+            return p_type
+        def _get_blockdata(fname_cc):
+            """ Return the block name and the header file name from the .cc file name """
+            blockname = os.path.splitext(os.path.basename(fname_cc))[0]
+            fname_h = blockname + '.h'
+            blockname = blockname.replace(self._info['modname']+'_', '', 1) # Deprecate 3.7
+            fname_xml = '%s_%s.xml' % (self._info['modname'], blockname)
+            return (blockname, fname_h, fname_xml)
+        # Go, go, go
+        print "Making GRC bindings for %s..." % fname_cc
+        (blockname, fname_h, fname_xml) = _get_blockdata(fname_cc)
+        try:
+            parser = ParserCCBlock(fname_cc,
+                                   os.path.join('include', fname_h),
+                                   blockname, _type_translate
+                                  )
+        except IOError:
+            print "Can't open some of the files necessary to parse %s." % fname_cc
+            sys.exit(1)
+        params = parser.read_params()
+        iosig = parser.read_io_signature()
+        # Some adaptions for the GRC
+        for inout in ('in', 'out'):
+            if iosig[inout]['max_ports'] == '-1':
+                iosig[inout]['max_ports'] = '$num_%sputs' % inout
+                params.append({'key': 'num_%sputs' % inout,
+                               'type': 'int',
+                               'name': 'Num %sputs' % inout,
+                               'default': '2',
+                               'in_constructor': False})
+        # Make some XML!
+        grc_generator = GRCXMLGenerator(
+                modname=self._info['modname'],
+                blockname=blockname,
+                params=params,
+                iosig=iosig
+        )
+        grc_generator.save(os.path.join('grc', fname_xml))
+        # Make sure the XML is in the CMakeLists.txt
+        if not self._skip_subdirs['grc']:
+            ed = CMakeFileEditor(os.path.join('grc', 'CMakeLists.txt'))
+            if re.search(fname_xml, ed.cfile) is None:
+                ed.append_value('install', fname_xml, 'DESTINATION[^()]+')
+                ed.write()
 
 ### Help module ##############################################################
 def print_class_descriptions():

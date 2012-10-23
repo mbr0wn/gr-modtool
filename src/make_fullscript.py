@@ -28,9 +28,10 @@ LIST_OF_FILES = (
         'modtool_base.py',
         'modtool_add.py',
         'modtool_rm.py',
-        'newmod_tarfile.py', 
+        'newmod_tarfile.py',
         'modtool_newmod.py',
         'parser_cc_block.py',
+        'grc_xml_generator.py',
         'modtool_makexml.py',
         'modtool_help.py',
         'gr_modtool.py')
