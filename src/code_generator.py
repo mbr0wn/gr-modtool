@@ -2,13 +2,14 @@
 
 import re
 from util_functions import str_to_fancyc_comment, str_to_python_comment
+from util_functions import strip_default_values, strip_arg_types
+
 from templates import Templates
 
 ### Code generator class #####################################################
 class CodeGenerator(object):
     """ Creates the skeleton files. """
     def __init__(self):
-        self.defvalpatt = re.compile(" *=[^,)]*")
         self.grtypelist = {
                 'sync': 'gr_sync_block',
                 'decimator': 'gr_sync_decimator',
@@ -17,16 +18,6 @@ class CodeGenerator(object):
                 'hiercpp': 'gr_hier_block2',
                 'impl': '',
                 'hierpython': ''}
-
-    def strip_default_values(self, string):
-        """ Strip default values from a C++ argument list. """
-        return self.defvalpatt.sub("", string)
-
-    def strip_arg_types(self, string):
-        """" Strip the argument types from a list of arguments
-        Example: "int arg1, double arg2" -> "arg1, arg2" """
-        string = self.strip_default_values(string)
-        return ", ".join([part.strip().split(' ')[-1] for part in string.split(',')])
 
     def get_template(self, tpl_id, **kwargs):
         ''' Request a skeleton file from a template.
@@ -39,8 +30,8 @@ class CodeGenerator(object):
         elif tpl_id in ('qa_python', 'hier_python'):
             kwargs['license'] = str_to_python_comment(kwargs['license'])
         # Standard values for templates
-        kwargs['argliststripped'] = self.strip_default_values(kwargs['arglist'])
-        kwargs['arglistnotypes'] = self.strip_arg_types(kwargs['arglist'])
+        kwargs['argliststripped'] = strip_default_values(kwargs['arglist'])
+        kwargs['arglistnotypes'] = strip_arg_types(kwargs['arglist'])
         kwargs['fullblocknameupper'] = kwargs['fullblockname'].upper()
         kwargs['modnameupper'] = kwargs['modname'].upper()
         kwargs['grblocktype'] = self.grtypelist[kwargs['blocktype']]

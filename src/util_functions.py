@@ -50,6 +50,16 @@ def str_to_python_comment(text):
     """ Return a string as a Python formatted comment. """
     return re.compile('^', re.MULTILINE).sub('# ', text)
 
+def strip_default_values(string):
+    """ Strip default values from a C++ argument list. """
+    return re.sub(' *=[^,)]*', '', string)
+
+def strip_arg_types(string):
+    """" Strip the argument types from a list of arguments
+    Example: "int arg1, double arg2" -> "arg1, arg2" """
+    string = strip_default_values(string)
+    return ", ".join([part.strip().split(' ')[-1] for part in string.split(',')])
+
 def get_modname():
     """ Grep the current module's name from gnuradio.project """
     try:
@@ -76,3 +86,26 @@ def get_class_dict():
             pass
     return classdict
 
+def is_number(s):
+    " Return True if the string s contains a number. "
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+def xml_indent(elem, level=0):
+    """ Adds indents to XML for pretty printing """
+    i = "\n" + level*"    "
+    if len(elem):
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "    "
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        for elem in elem:
+            xml_indent(elem, level+1)
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
