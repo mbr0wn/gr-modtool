@@ -78,9 +78,12 @@ class ParserCCBlock(object):
         make_regex = '(?<=_API)\s+\w+_sptr\s+\w+_make_\w+\s*\(([^)]*)\)'
         make_match = re.compile(make_regex, re.MULTILINE).search(self.code_h)
         # Go through params
+        params = []
         try:
-            params = []
-            for param in make_match.groups()[0].split(','):
+            param_str = make_match.group(1).strip()
+            if len(param_str) == 0:
+                return params
+            for param in param_str.split(','):
                 p_split = param.strip().split('=')
                 if len(p_split) == 2:
                     default_v = p_split[1].strip()
@@ -92,7 +95,7 @@ class ParserCCBlock(object):
                                'default': default_v,
                                'in_constructor': True})
         except ValueError:
-            print "Error: Can't parse this: ", make_match.groups()[0]
+            print "Error: Can't parse this: ", make_match.group(0)
             sys.exit(1)
         return params
 
