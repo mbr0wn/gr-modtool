@@ -7,7 +7,6 @@ from optparse import OptionParser, OptionGroup
 
 from util_functions import get_modname
 from templates import Templates
-from code_generator import CodeGenerator
 
 ### ModTool base class #######################################################
 class ModTool(object):
@@ -21,7 +20,6 @@ class ModTool(object):
             self._has_subdirs[subdir] = False
             self._skip_subdirs[subdir] = False
         self.parser = self.setup_parser()
-        self.tpl = CodeGenerator()
         self.args = None
         self.options = None
         self._dir = None
