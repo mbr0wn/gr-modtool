@@ -48,6 +48,7 @@ class ModToolMakeXML(ModTool):
 
     def run(self):
         """ Go, go, go! """
+        print "Warning: This is an experimental feature. Don't expect any magic."
         # 1) Go through lib/
         if not self._skip_subdirs['lib']:
             files = self._search_files('lib', '*.cc')
@@ -87,7 +88,7 @@ class ModToolMakeXML(ModTool):
                                'in_constructor': False})
         if os.path.isfile(os.path.join('grc', fname_xml)):
             # TODO add an option to keep
-            print "Overwriting existing GRC file."
+            print "Warning: Overwriting existing GRC file."
         grc_generator = GRCXMLGenerator(
                 modname=self._info['modname'],
                 blockname=blockname,
