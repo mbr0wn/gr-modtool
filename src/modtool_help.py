@@ -1,6 +1,7 @@
 """ The help module """
 
 from modtool_base import ModTool
+from modtool_info import ModToolInfo
 from modtool_add import ModToolAdd
 from modtool_rm import ModToolRemove
 from modtool_newmod import ModToolNewModule

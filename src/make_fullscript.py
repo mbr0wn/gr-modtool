@@ -26,6 +26,7 @@ LIST_OF_FILES = (
         'code_generator.py',
         'cmakefile_editor.py',
         'modtool_base.py',
+        'modtool_info.py',
         'modtool_add.py',
         'modtool_rm.py',
         'newmod_tarfile.py', 

@@ -5,6 +5,7 @@ import sys
 from templates import Templates
 from modtool_base import ModTool
 from modtool_help import ModToolHelp
+from modtool_info import ModToolInfo
 from modtool_add import ModToolAdd
 from modtool_rm import ModToolRemove
 from modtool_newmod import ModToolNewModule
