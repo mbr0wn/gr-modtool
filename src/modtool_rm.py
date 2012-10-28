@@ -82,13 +82,13 @@ class ModToolRemove(ModTool):
                              cmakeedit_func=_remove_cc_test_case)
         if not self._skip_subdirs['swig']:
             for f in incl_files_deleted:
-                remove_pattern_from_file('swig/'+self._get_mainswigfile(), _make_swig_regex(f))
-                remove_pattern_from_file('swig/'+self._get_mainswigfile(), '#include "%s".*\n' % f)
+                remove_pattern_from_file(self._file['swig'], _make_swig_regex(f))
+                remove_pattern_from_file(self._file['swig'], '#include "%s".*\n' % f)
         if not self._skip_subdirs['python']:
             py_files_deleted = self._run_subdir('python', ('*.py',), ('GR_PYTHON_INSTALL',),
                                                 cmakeedit_func=_remove_py_test_case)
             for f in py_files_deleted:
-                remove_pattern_from_file('python/__init__.py', '.*import.*%s.*' % f[:-3])
+                remove_pattern_from_file(self._file['pyinit'], '.*import.*%s.*' % f[:-3])
         if not self._skip_subdirs['grc']:
             self._run_subdir('grc', ('*.xml',), ('install',))
 

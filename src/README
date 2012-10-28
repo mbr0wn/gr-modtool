@@ -18,13 +18,15 @@ There are some caveats:
   modules. So if this function should ever be changed, it needs at least to
   be fixed in util_functions.py, because that's the version that makes into
   the final product (but should be changed in all cases).
+* Changes in the gr-newmod dir are not automatically applied when running
+  make_fullscript.py, so run create_newmod_tarfile first if you change that.
 
 
 The gr-newmod directory
 =======================
 This dir basically contains a copy of gr-howto-write-a-block from the gnuradio
 sources, with some differences:
-- All example blocks, apps, grc files (...) and references thereto in the the
+- All example blocks, apps, grc files (...) and references thereto in the
   CMake files are removed
 - In the top-level CMake file, the project is called 'gr-howto'.
 

@@ -27,4 +27,5 @@ import tarfile
 from datetime import datetime
 from optparse import OptionParser, OptionGroup
 from string import Template
+import xml.etree.ElementTree as ET
 
