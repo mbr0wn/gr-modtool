@@ -127,7 +127,7 @@ class ${modname}_${blockname};
 
 typedef boost::shared_ptr<${modname}_${blockname}> ${modname}_${blockname}_sptr;
 
-HOWTO_API ${modname}_${blockname}_sptr ${modname}_make_${blockname} ($arglist);
+${modname.upper()}_API ${modname}_${blockname}_sptr ${modname}_make_${blockname} ($arglist);
 
 /*!
  * \\brief <+description+>
