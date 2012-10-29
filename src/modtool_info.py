@@ -31,58 +31,81 @@ class ModToolInfo(ModTool):
 
     def run(self):
         """ Go, go, go! """
-        out_info = {}
-        base_dir = os.path.abspath(self.options.directory)
+        mod_info = {}
+        base_dir = self._get_base_dir(self.options.directory)
+        if base_dir is None:
+            if self.options.python_readable:
+                print '{}'
+            else:
+                print "No module found."
+            sys.exit(0)
+        mod_info['base_dir'] = base_dir
+        os.chdir(mod_info['base_dir'])
+        mod_info['modname'] = get_modname()
+        mod_info['incdirs'] = []
+        mod_incl_dir = os.path.join(mod_info['base_dir'], 'include')
+        if os.path.isdir(os.path.join(mod_incl_dir, mod_info['modname'])):
+            mod_info['incdirs'].append(os.path.join(mod_incl_dir, mod_info['modname']))
+        else:
+            mod_info['incdirs'].append(mod_incl_dir)
+        build_dir = self._get_build_dir(mod_info)
+        if build_dir is not None:
+            mod_info['build_dir'] = build_dir
+            mod_info['incdirs'] += self._get_include_dirs(mod_info)
+        if self.options.python_readable:
+            print str(mod_info)
+        else:
+            self._pretty_print(mod_info)
+
+    def _get_base_dir(self, start_dir):
+        """ Figure out the base dir (where the top-level cmake file is) """
+        base_dir = os.path.abspath(start_dir)
         if self._check_directory(base_dir):
-            out_info['base_dir'] = base_dir
+            return base_dir
         else:
             (up_dir, this_dir) = os.path.split(base_dir)
-            if os.path.splitext(up_dir)[1] == 'include':
-                up_dir = os.path.splitext(up_dir)[0]
+            if os.path.split(up_dir)[1] == 'include':
+                up_dir = os.path.split(up_dir)[0]
             if self._check_directory(up_dir):
-                out_info['base_dir'] = up_dir
-            else:
-                if self.options.python_readable:
-                    print '{}'
-                else:
-                    print "No module found."
-                sys.exit(0)
-        os.chdir(out_info['base_dir'])
-        out_info['modname'] = get_modname()
-        out_info['incdirs'] = []
-        mod_incl_dir = os.path.join(out_info['base_dir'], 'include')
-        if os.path.isdir(os.path.join(mod_incl_dir, out_info['modname'])):
-            out_info['incdirs'].append(os.path.join(mod_incl_dir, out_info['modname']))
+                return up_dir
+        return None
+
+    def _get_build_dir(self, mod_info):
+        """ Figure out the build dir (i.e. where you run 'cmake'). This checks
+        for a file called CMakeCache.txt, which is created when running cmake.
+        If that hasn't happened, the build dir cannot be detected, unless it's
+        called 'build', which is then assumed to be the build dir. """
+        has_build_dir = os.path.isdir(os.path.join(mod_info['base_dir'], 'build'))
+        if (has_build_dir and os.path.isfile(os.path.join(mod_info['base_dir'], 'CMakeCache.txt'))):
+            return os.path.join(mod_info['base_dir'], 'build')
         else:
-            out_info['incdirs'].append(mod_incl_dir)
-        if (os.path.isdir(os.path.join(out_info['base_dir'], 'build'))
-                and os.path.isfile(os.path.join(out_info['base_dir'], 'CMakeCache.txt'))):
-            out_info['build_dir'] = os.path.join(out_info['base_dir'], 'build')
-        else:
-            for (dirpath, dirnames, filenames) in os.walk(out_info['base_dir']):
+            for (dirpath, dirnames, filenames) in os.walk(mod_info['base_dir']):
                 if 'CMakeCache.txt' in filenames:
-                    out_info['build_dir'] = dirpath
-                    break
+                    return dirpath
+        if has_build_dir:
+            return os.path.join(mod_info['base_dir'], 'build')
+        return None
+
+    def _get_include_dirs(self, mod_info):
+        """ Figure out include dirs for the make process. """
+        inc_dirs = []
         try:
-            cmakecache_fid = open(os.path.join(out_info['build_dir'], 'CMakeCache.txt'))
+            cmakecache_fid = open(os.path.join(mod_info['build_dir'], 'CMakeCache.txt'))
             for line in cmakecache_fid:
                 if line.find('GNURADIO_CORE_INCLUDE_DIRS:PATH') != -1:
-                    out_info['incdirs'] += line.replace('GNURADIO_CORE_INCLUDE_DIRS:PATH=', '').strip().split(';')
+                    inc_dirs += line.replace('GNURADIO_CORE_INCLUDE_DIRS:PATH=', '').strip().split(';')
                 if line.find('GRUEL_INCLUDE_DIRS:PATH') != -1:
-                    out_info['incdirs'] += line.replace('GRUEL_INCLUDE_DIRS:PATH=', '').strip().split(';')
+                    inc_dirs += line.replace('GRUEL_INCLUDE_DIRS:PATH=', '').strip().split(';')
         except IOError:
             pass
-        if self.options.python_readable:
-            print str(out_info)
-        else:
-            self._pretty_print(out_info)
+        return inc_dirs
 
-    def _pretty_print(self, out_info):
+    def _pretty_print(self, mod_info):
         """ Output the module info in human-readable format """
         index_names = {'base_dir': 'Base directory',
                        'modname':  'Module name',
                        'build_dir': 'Build directory',
                        'incdirs': 'Include directories'}
-        for key in out_info.keys():
-            print '%19s: %s' % (index_names[key], out_info[key])
+        for key in mod_info.keys():
+            print '%19s: %s' % (index_names[key], mod_info[key])
 
