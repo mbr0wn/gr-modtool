@@ -43,7 +43,7 @@ class ModTool(object):
                 help="Don't do anything in the swig/ subdirectory.")
         ogroup.add_option("--skip-python", action="store_true", default=False,
                 help="Don't do anything in the python/ subdirectory.")
-        ogroup.add_option("--skip-grc", action="store_true", default=True,
+        ogroup.add_option("--skip-grc", action="store_true", default=False,
                 help="Don't do anything in the grc/ subdirectory.")
         parser.add_option_group(ogroup)
         return parser
@@ -85,6 +85,7 @@ class ModTool(object):
             self._skip_subdirs['grc'] = True
 
         self._info['blockname'] = options.block_name
+        self._info['includedir'] = 'include'
         self.options = options
         self._setup_files()
 
@@ -96,7 +97,7 @@ class ModTool(object):
 
     def _check_directory(self, directory):
         """ Guesses if dir is a valid GNU Radio module directory by looking for
-        gnuradio.project and at least one of the subdirs lib/, python/ and swig/.
+        CMakeLists.txt and at least one of the subdirs lib/, python/ and swig/.
         Changes the directory, if valid. """
         has_makefile = False
         try:
