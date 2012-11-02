@@ -50,7 +50,8 @@ class ModTool(object):
 
     def _setup_files(self):
         """ Initialise the self._file[] dictionary """
-        self._file['swig'] = os.path.join('swig', self._get_mainswigfile())
+        if not self._skip_subdirs['swig']:
+            self._file['swig'] = os.path.join('swig', self._get_mainswigfile())
         self._file['qalib'] = os.path.join('lib', 'qa_%s.cc' % self._info['modname'])
         self._file['pyinit'] = os.path.join('python', '__init__.py')
         self._file['cmlib'] = os.path.join('lib', 'CMakeLists.txt')
@@ -68,21 +69,21 @@ class ModTool(object):
             sys.exit(1)
         print "Operating in directory " + self._dir
 
-        if options.skip_lib:
-            print "Force-skipping 'lib'."
-            self._skip_subdirs['lib'] = True
-        if options.skip_python:
-            print "Force-skipping 'python'."
-            self._skip_subdirs['python'] = True
-        if options.skip_swig:
-            print "Force-skipping 'swig'."
-            self._skip_subdirs['swig'] = True
-
         if options.module_name is not None:
             self._info['modname'] = options.module_name
         else:
             self._info['modname'] = get_modname()
         print "GNU Radio module name identified: " + self._info['modname']
+
+        if options.skip_lib:
+            self._skip_subdirs['lib'] = True
+        if options.skip_python:
+            self._skip_subdirs['python'] = True
+        if options.skip_swig or self._get_mainswigfile() is None:
+            self._skip_subdirs['swig'] = True
+        if options.skip_grc:
+            self._skip_subdirs['grc'] = True
+
         self._info['blockname'] = options.block_name
         self.options = options
         self._setup_files()
