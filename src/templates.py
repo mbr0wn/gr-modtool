@@ -164,6 +164,70 @@ class ${modname.upper()}_API ${modname}_${blockname} : public $grblocktype
 
 '''
 
+# Python block (from grextras!)
+Templates['block_python'] = '''\#!/usr/bin/env python
+${str_to_python_comment($license)}
+#
+
+from gnuradio import gr
+import gnuradio.extras
+
+#if $blocktype == 'sink'
+#set $inputsig = 'None'
+#else
+#set $inputsig = '[<+numpy.float+>]'
+#end if
+#if $blocktype == 'source'
+#set $outputsig = 'None'
+#else
+#set $outputsig = '[<+numpy.float+>]'
+#end if
+
+class ${blockname}(gr.block):
+    def __init__(self, args):
+        gr.block.__init__(self, name="${blockname}", in_sig=${inputsig}, out_sig=${outputsig})
+#if $blocktype == 'decimator'
+        self.set_relative_rate(1.0/<+decimation+>)
+#else if $blocktype == 'interpolator'
+        self.set_relative_rate(<+interpolation+>)
+#else if $blocktype == 'general'
+        self.set_auto_consume(False)
+
+    def forecast(self, noutput_items, ninput_items_required):
+        #setup size of input_items[i] for work call
+        for i in range(len(ninput_items_required)):
+            ninput_items_required[i] = noutput_items
+#end if
+
+    def work(self, input_items, output_items):
+#if $blocktype != 'source'
+        in = input_items[0]
+#end if
+#if $blocktype != 'sink'
+        out = output_items[0]
+#end if
+#if $blocktype in ('sync', 'decimator', 'interpolator')
+        # <+signal processing here+>
+        out[:] = in
+        return len(output_items[0])
+#else if $blocktype == 'sink'
+        return len(input_items[0])
+#else if $blocktype == 'source'
+        out[:] = whatever
+        return len(output_items[0])
+#else if $blocktype == 'general'
+        # <+signal processing here+>
+        out[:] = in
+
+        self.consume(0, len(in0)) //consume port 0 input
+        \#self.consume_each(len(out)) //or shortcut to consume on all inputs
+
+        # return produced
+        return len(out)
+#end if
+
+'''
+
 # C++ file for QA
 Templates['qa_cpp'] = '''/* -*- c++ -*- */
 ${str_to_fancyc_comment($license)}
