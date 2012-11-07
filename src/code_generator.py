@@ -14,13 +14,13 @@ class GRMTemplate(Cheetah.Template.Template):
     def __init__(self, src, searchList):
         self.grtypelist = {
                 'sync': 'gr_sync_block',
+                'sink': 'gr_sync_block',
+                'source': 'gr_sync_block',
                 'decimator': 'gr_sync_decimator',
                 'interpolator': 'gr_sync_interpolator',
                 'general': 'gr_block',
-                'hiercpp': 'gr_hier_block2',
                 'hier': 'gr_hier_block2',
-                'noblock': '',
-                'hierpython': ''}
+                'noblock': ''}
         searchList['str_to_fancyc_comment'] = str_to_fancyc_comment
         searchList['str_to_python_comment'] = str_to_python_comment
         searchList['strip_default_values'] = strip_default_values

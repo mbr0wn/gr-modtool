@@ -179,23 +179,55 @@ class ${modname.upper()}_API ${modname}_${blockname} : public $grblocktype
 Templates['block_python'] = '''\#!/usr/bin/env python
 ${str_to_python_comment($license)}
 #
+#if $blocktype == 'noblock'
+#stop
+#end if
 
 from gnuradio import gr
+#if $blocktype != 'hier'
+#set $parenttype = 'gr.block'
 import gnuradio.extras
-
-#if $blocktype == 'sink'
+#if $blocktype == 'source'
 #set $inputsig = 'None'
 #else
 #set $inputsig = '[<+numpy.float+>]'
 #end if
-#if $blocktype == 'source'
+#if $blocktype == 'sink'
 #set $outputsig = 'None'
 #else
 #set $outputsig = '[<+numpy.float+>]'
 #end if
-class ${blockname}(gr.block):
-    def __init__(self, args):
-        gr.block.__init__(self, name="${blockname}", in_sig=${inputsig}, out_sig=${outputsig})
+#else
+#set $parenttype = 'gr.hier_block2'
+#if $blocktype == 'source'
+#set $inputsig = '0, 0, 0'
+#else
+#set $inputsig = '<+MIN_IN+>, <+MAX_IN+>, gr.sizeof_<+float+>'
+#end if
+#if $blocktype == 'sink'
+#set $outputsig = '0, 0, 0'
+#else
+#set $outputsig = '<+MIN_OUT+>, <+MAX_OUT+>, gr.sizeof_<+float+>'
+#end if
+#end if
+
+class ${blockname}(${parenttype}):
+    def __init__(self#if $arglist == '' then '' else ', '#$arglist):
+        """
+        docstring
+        """
+#if $blocktype == 'hier'
+        gr.hier_block2.__init__(self, "$blockname",
+            gr.io_signature(${inputsig}),  # Input signature
+            gr.io_signature(${outputsig})) # Output signature
+
+            # Define blocks and connect them
+            self.connect()
+#else
+        gr.block.__init__(self,
+                          name="${blockname}",
+                          in_sig=${inputsig},
+                          out_sig=${outputsig})
 #if $blocktype == 'decimator'
         self.set_relative_rate(1.0/<+decimation+>)
 #else if $blocktype == 'interpolator'
@@ -208,7 +240,11 @@ class ${blockname}(gr.block):
         for i in range(len(ninput_items_required)):
             ninput_items_required[i] = noutput_items
 #end if
+#end if
 
+#if $blocktype == 'hier'
+#stop
+#end if
     def work(self, input_items, output_items):
 #if $blocktype != 'source'
         in = input_items[0]
@@ -263,7 +299,11 @@ ${str_to_python_comment($license)}
 #
 
 from gnuradio import gr, gr_unittest
+#if $lang == 'cpp'
 import ${modname}_swig as ${modname}
+#else
+from ${blockname} import ${blockname}
+#end if
 
 class qa_$blockname (gr_unittest.TestCase):
 
@@ -281,36 +321,6 @@ class qa_$blockname (gr_unittest.TestCase):
 
 if __name__ == '__main__':
     gr_unittest.run(qa_${blockname}, "qa_${blockname}.xml")
-'''
-
-
-# Hierarchical block, Python version
-Templates['hier_python'] = '''${str_to_python_comment($license)}
-
-from gnuradio import gr
-
-#if $blocktype == 'sink'
-#set $inputsig = '0, 0, 0'
-#else
-#set $inputsig = '<+MIN_IN+>, <+MAX_IN+>, gr.sizeof_<+float+>'
-#end if
-#if $blocktype == 'source'
-#set $outputsig = '0, 0, 0'
-#else
-#set $outputsig = '<+MIN_OUT+>, <+MAX_OUT+>, gr.sizeof_<+float+>'
-#end if
-class ${blockname}(gr.hier_block2):
-    def __init__(self#if $arglist == '' then '' else ', '#$arglist):
-    """
-    docstring
-    """
-    gr.hier_block2.__init__(self, "$blockname",
-        gr.io_signature(${inputsig}),  # Input signature
-        gr.io_signature(${outputsig})) # Output signature
-
-        # Define blocks and connect them
-        self.connect()
-
 '''
 
 # Non-block file, C++ header
@@ -353,6 +363,12 @@ $blockname::~${blockname}()
 
 '''
 
+# Non-block file, Python source
+Templates['noblock_python'] = '''\#!/usr/bin/env python
+${str_to_python_comment($license)}
+#
+
+'''
 
 Templates['grc_xml'] = '''<?xml version="1.0"?>
 <block>

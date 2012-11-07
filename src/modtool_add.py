@@ -89,7 +89,7 @@ class ModToolAdd(ModTool):
             self._add_py_qa = options.add_python_qa
             if self._add_py_qa is None:
                 self._add_py_qa = (raw_input('Add Python QA code? [Y/n] ').lower() != 'n')
-        if not (self._info['blocktype'] in ('hierpython') or self._skip_subdirs['lib']):
+        if self._info['lang'] == 'cpp':
             self._add_cc_qa = options.add_cpp_qa
             if self._add_cc_qa is None:
                 self._add_cc_qa = (raw_input('Add C++ QA code? [Y/n] ').lower() != 'n')
@@ -118,27 +118,28 @@ class ModToolAdd(ModTool):
 
     def run(self):
         """ Go, go, go. """
-        if self._info['lang'] == 'cpp':
-            self._run_lib()
         has_swig = (
                 self._info['lang'] == 'cpp'
                 and self._info['blocktype'] != 'noblock'
                 and self._has_subdirs['swig']
                 and not self._skip_subdirs['swig']
         )
-        print has_swig
+        has_grc = False
+        if self._info['lang'] == 'cpp':
+            self._run_lib()
+            has_grc = has_swig
+        else: # Python
+            self._run_python()
+            if self._info['blocktype'] != 'noblock':
+                has_grc = True
         if has_swig:
             self._run_swig()
         if self._add_py_qa:
             self._run_python_qa()
-        if self._info['blocktype'] == 'hier' and self._info['lang'] == 'python':
-            self._run_python_hierblock()
         if (
                 not self._skip_subdirs['grc']
                 and self._has_subdirs['grc']
-                and ((self._info['blocktype'] == 'hier' and self._info['lang'] == 'python')
-                      or has_swig
-                    )
+                and has_grc
            ):
             self._run_grc()
 
@@ -224,18 +225,22 @@ class ModToolAdd(ModTool):
                 'GR_ADD_TEST(qa_%s ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/%s)\n' % \
                   (self._info['blockname'], fname_py_qa))
 
-    def _run_python_hierblock(self):
+    def _run_python(self):
         """ Do everything that needs doing in the subdir 'python' to add
-        a Python hier_block.
+        a Python block.
         - add .py file
         - include in CMakeLists.txt
+        - include in __init__.py
         """
         print "Traversing python..."
         fname_py = self._info['blockname'] + '.py'
-        self._write_tpl('hier_python', 'python', fname_py)
+        self._write_tpl('block_python', 'python', fname_py)
         ed = CMakeFileEditor(self._file['cmpython'])
         ed.append_value('GR_PYTHON_INSTALL', fname_py, 'DESTINATION[^()]+')
         ed.write()
+        append_re_line_sequence(self._file['pyinit'],
+                                '(^from.*import.*\n|# import any pure.*\n)',
+                                'from %s import *' % self._info['blockname'])
 
     def _run_grc(self):
         """ Do everything that needs doing in the subdir 'grc' to add
