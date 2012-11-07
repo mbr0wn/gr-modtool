@@ -75,15 +75,14 @@ class ModTool(object):
             self._info['modname'] = get_modname()
         print "GNU Radio module name identified: " + self._info['modname']
 
-        if options.skip_lib:
+        if options.skip_lib or not self._has_subdirs['lib']:
             self._skip_subdirs['lib'] = True
-        if options.skip_python:
+        if options.skip_python or not self._has_subdirs['python']:
             self._skip_subdirs['python'] = True
-        if options.skip_swig or self._get_mainswigfile() is None:
+        if options.skip_swig or self._get_mainswigfile() is None or not self._has_subdirs['swig']:
             self._skip_subdirs['swig'] = True
-        if options.skip_grc:
+        if options.skip_grc or not self._has_subdirs['grc']:
             self._skip_subdirs['grc'] = True
-
         self._info['blockname'] = options.block_name
         self._info['includedir'] = 'include'
         self.options = options

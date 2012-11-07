@@ -61,8 +61,8 @@ class ModToolAdd(ModTool):
             self._info['lang'] = 'cpp'
         print "Language: %s" % {'cpp': 'C++', 'python': 'Python'}[self._info['lang']]
 
-        if (((not self._has_subdirs['lib'] or self._skip_subdirs['lib']) and self._info['lang'] == 'cpp')
-             or ((not self._has_subdirs['python'] or self._skip_subdirs['python']) and self._info['lang'] == 'python')):
+        if ((self._skip_subdirs['lib'] and self._info['lang'] == 'cpp')
+             or (self._skip_subdirs['python'] and self._info['lang'] == 'python')):
             print "Missing or skipping relevant subdir."
             sys.exit(1)
 
@@ -120,8 +120,6 @@ class ModToolAdd(ModTool):
         """ Go, go, go. """
         has_swig = (
                 self._info['lang'] == 'cpp'
-                and self._info['blocktype'] != 'noblock'
-                and self._has_subdirs['swig']
                 and not self._skip_subdirs['swig']
         )
         has_grc = False
@@ -136,11 +134,7 @@ class ModToolAdd(ModTool):
             self._run_swig()
         if self._add_py_qa:
             self._run_python_qa()
-        if (
-                not self._skip_subdirs['grc']
-                and self._has_subdirs['grc']
-                and has_grc
-           ):
+        if has_grc and not self._skip_subdirs['grc']:
             self._run_grc()
 
 
