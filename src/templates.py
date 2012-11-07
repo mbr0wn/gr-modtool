@@ -52,7 +52,7 @@ ${modname}_make_${blockname} (${strip_default_values($arglist)})
  * The private constructor
  */
 ${modname}_${blockname}::${modname}_${blockname} (${strip_default_values($arglist)})
-  : gr_sync_block ("square2_ff",
+  : gr_sync_block ("${blockname}",
 		   gr_make_io_signature($inputsig),
 		   gr_make_io_signature($outputsig)$decimation)
 {
@@ -137,7 +137,7 @@ ${modname.upper()}_API ${modname}_${blockname}_sptr ${modname}_make_${blockname}
 class ${modname.upper()}_API ${modname}_${blockname} : public $grblocktype
 {
  private:
-	friend ${modname.upper()}_API ${modname}_${blockname}_sptr ${modname}_make_square2_ff (${strip_default_values($arglist)});
+	friend ${modname.upper()}_API ${modname}_${blockname}_sptr ${modname}_make_${blockname} (${strip_default_values($arglist)});
 
   ${modname}_${blockname}(${strip_default_values($arglist)});
 
