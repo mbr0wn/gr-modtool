@@ -21,8 +21,6 @@ class ModToolAdd(ModTool):
                     'general', 'hier', 'noblock')
     def __init__(self):
         ModTool.__init__(self)
-        self._info['inputsig'] = "<+MIN_IN+>, <+MAX_IN+>, sizeof (<+float+>)"
-        self._info['outputsig'] = "<+MIN_OUT+>, <+MAX_OUT+>, sizeof (<+float+>)"
         self._add_cc_qa = False
         self._add_py_qa = False
 
@@ -47,7 +45,6 @@ class ModToolAdd(ModTool):
                 default='cpp', help="Language (cpp or python)")
         parser.add_option_group(ogroup)
         return parser
-
 
     def setup(self):
         ModTool.setup(self)
@@ -96,13 +93,6 @@ class ModToolAdd(ModTool):
             self._add_cc_qa = options.add_cpp_qa
             if self._add_cc_qa is None:
                 self._add_cc_qa = (raw_input('Add C++ QA code? [Y/n] ').lower() != 'n')
-
-        if self._info['blocktype'] == 'source':
-            self._info['inputsig'] = "0, 0, 0"
-            self._info['blocktype'] = "sync"
-        if self._info['blocktype'] == 'sink':
-            self._info['outputsig'] = "0, 0, 0"
-            self._info['blocktype'] = "sync"
 
 
     def setup_choose_license(self):

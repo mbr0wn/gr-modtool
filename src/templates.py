@@ -41,13 +41,24 @@ ${modname}_make_${blockname} (${strip_default_values($arglist)})
 	return gnuradio::get_initial_sptr (new ${modname}_${blockname}(${strip_arg_types($arglist)}));
 }
 
-#if $grblocktype == 'gr_sync_decimator'
+#if $blocktype == 'decimator'
 #set $decimation = ', <+decimation+>'
-#else if $grblocktype == 'gr_sync_interpolator'
+#else if $blocktype == 'interpolator'
 #set $decimation = ', <+interpolation+>'
 #else
 #set $decimation = ''
 #end if
+#if $blocktype == 'sink'
+#set $inputsig = '0, 0, 0'
+#else
+#set $inputsig = '<+MIN_IN+>, <+MAX_IN+>, sizeof (<+float+>)'
+#end if
+#if $blocktype == 'source'
+#set $outputsig = '0, 0, 0'
+#else
+#set $outputsig = '<+MIN_OUT+>, <+MAX_OUT+>, sizeof (<+float+>)'
+#end if
+
 /*
  * The private constructor
  */
@@ -56,7 +67,7 @@ ${modname}_${blockname}::${modname}_${blockname} (${strip_default_values($arglis
 		   gr_make_io_signature($inputsig),
 		   gr_make_io_signature($outputsig)$decimation)
 {
-#if $grblocktype == 'gr_hier_block2'
+#if $blocktype == 'hier'
 		connect(self(), 0, d_firstblock, 0);
 		// connect other blocks
 		connect(d_lastblock, 0, self(), 0);
@@ -75,7 +86,7 @@ ${modname}_${blockname}::~${modname}_${blockname}()
 }
 
 
-#if $grblocktype == 'gr_block'
+#if $blocktype == 'general'
 int
 ${modname}_${blockname}::general_work (int noutput_items,
 				   gr_vector_int &ninput_items,
@@ -93,7 +104,7 @@ ${modname}_${blockname}::general_work (int noutput_items,
 	// Tell runtime system how many output items we produced.
 	return noutput_items;
 }
-#else if $grblocktype == 'gr_hier_block2'
+#else if $blocktype == 'hier'
 #pass
 #else
 int
@@ -144,13 +155,13 @@ class ${modname.upper()}_API ${modname}_${blockname} : public $grblocktype
  public:
   ~${modname}_${blockname}();
 
-#if $grblocktype == 'gr_block'
+#if $blocktype == 'general'
 	// Where all the action really happens
 	int general_work (int noutput_items,
 	    gr_vector_int &ninput_items,
 	    gr_vector_const_void_star &input_items,
 	    gr_vector_void_star &output_items);
-#else if $grblocktype == 'gr_hier_block2'
+#else if $blocktype == 'hier'
 #pass
 #else
 	// Where all the action really happens
@@ -182,7 +193,6 @@ import gnuradio.extras
 #else
 #set $outputsig = '[<+numpy.float+>]'
 #end if
-
 class ${blockname}(gr.block):
     def __init__(self, args):
         gr.block.__init__(self, name="${blockname}", in_sig=${inputsig}, out_sig=${outputsig})
@@ -279,14 +289,24 @@ Templates['hier_python'] = '''${str_to_python_comment($license)}
 
 from gnuradio import gr
 
+#if $blocktype == 'sink'
+#set $inputsig = '0, 0, 0'
+#else
+#set $inputsig = '<+MIN_IN+>, <+MAX_IN+>, gr.sizeof_<+float+>'
+#end if
+#if $blocktype == 'source'
+#set $outputsig = '0, 0, 0'
+#else
+#set $outputsig = '<+MIN_OUT+>, <+MAX_OUT+>, gr.sizeof_<+float+>'
+#end if
 class ${blockname}(gr.hier_block2):
     def __init__(self#if $arglist == '' then '' else ', '#$arglist):
     """
     docstring
-	"""
-        gr.hier_block2.__init__(self, "$blockname",
-				gr.io_signature(${inputsig}),  # Input signature
-				gr.io_signature(${outputsig})) # Output signature
+    """
+    gr.hier_block2.__init__(self, "$blockname",
+        gr.io_signature(${inputsig}),  # Input signature
+        gr.io_signature(${outputsig})) # Output signature
 
         # Define blocks and connect them
         self.connect()
