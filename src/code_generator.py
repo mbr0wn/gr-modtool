@@ -18,6 +18,7 @@ class GRMTemplate(Cheetah.Template.Template):
                 'interpolator': 'gr_sync_interpolator',
                 'general': 'gr_block',
                 'hiercpp': 'gr_hier_block2',
+                'hier': 'gr_hier_block2',
                 'noblock': '',
                 'hierpython': ''}
         searchList['str_to_fancyc_comment'] = str_to_fancyc_comment
