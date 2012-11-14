@@ -247,14 +247,14 @@ class ${blockname}(${parenttype}):
 #end if
     def work(self, input_items, output_items):
 #if $blocktype != 'source'
-        in = input_items[0]
+        in0 = input_items[0]
 #end if
 #if $blocktype != 'sink'
         out = output_items[0]
 #end if
 #if $blocktype in ('sync', 'decimator', 'interpolator')
         # <+signal processing here+>
-        out[:] = in
+        out[:] = in0
         return len(output_items[0])
 #else if $blocktype == 'sink'
         return len(input_items[0])
@@ -263,7 +263,7 @@ class ${blockname}(${parenttype}):
         return len(output_items[0])
 #else if $blocktype == 'general'
         # <+signal processing here+>
-        out[:] = in
+        out[:] = in0
 
         self.consume(0, len(in0)) //consume port 0 input
         \#self.consume_each(len(out)) //or shortcut to consume on all inputs
