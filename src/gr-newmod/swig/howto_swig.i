@@ -7,7 +7,7 @@
 //load generated python docstrings
 %include "howto_swig_doc.i"
 
-
 %{
 %}
+
 

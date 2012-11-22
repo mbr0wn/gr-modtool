@@ -1,6 +1,5 @@
 """ A code generator (needed by ModToolAdd) """
 
-import re
 from templates import Templates
 import Cheetah.Template
 from util_functions import str_to_fancyc_comment

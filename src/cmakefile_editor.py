@@ -55,7 +55,8 @@ class CMakeFileEditor(object):
         reg = re.compile(regex)
         fname_re = re.compile('[a-zA-Z]\w+\.\w{1,5}$')
         for line in self.cfile.splitlines():
-            if len(line.strip()) == 0 or line.strip()[0] == '#': continue
+            if len(line.strip()) == 0 or line.strip()[0] == '#':
+                continue
             for word in re.split('[ /)(\t\n\r\f\v]', line):
                 if fname_re.match(word) and reg.search(word):
                     filenames.append(word)
@@ -64,20 +65,16 @@ class CMakeFileEditor(object):
     def disable_file(self, fname):
         """ Comment out a file """
         starts_line = False
-        ends_line = False
         for line in self.cfile.splitlines():
-            if len(line.strip()) == 0 or line.strip()[0] == '#': continue
+            if len(line.strip()) == 0 or line.strip()[0] == '#':
+                continue
             if re.search(r'\b'+fname+r'\b', line):
                 if re.match(fname, line.lstrip()):
                     starts_line = True
-                if re.search(fname+'$', line.rstrip()):
-                    end_line = True
                 break
-        comment_out_re = r'#\1'
+        comment_out_re = r'#\1' + '\n' + self.indent
         if not starts_line:
             comment_out_re = r'\n' + self.indent + comment_out_re
-        if not ends_line:
-            comment_out_re = comment_out_re + '\n' + self.indent
         (self.cfile, nsubs) = re.subn(r'(\b'+fname+r'\b)\s*', comment_out_re, self.cfile)
         if nsubs == 0:
             print "Warning: A replacement failed when commenting out %s. Check the CMakeFile.txt manually." % fname
@@ -85,9 +82,9 @@ class CMakeFileEditor(object):
             print "Warning: Replaced %s %d times (instead of once). Check the CMakeFile.txt manually." % (fname, nsubs)
 
 
-    def comment_out_lines(self, pattern):
+    def comment_out_lines(self, pattern, comment_str='#'):
         """ Comments out all lines that match with pattern """
         for line in self.cfile.splitlines():
             if re.search(pattern, line):
-                self.cfile = self.cfile.replace(line, '#'+line)
+                self.cfile = self.cfile.replace(line, comment_str+line)
 

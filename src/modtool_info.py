@@ -33,6 +33,7 @@ class ModToolInfo(ModTool):
         """ Go, go, go! """
         mod_info = {}
         base_dir = self._get_base_dir(self.options.directory)
+        # So we have to do that by hand
         if base_dir is None:
             if self.options.python_readable:
                 print '{}'
@@ -42,6 +43,11 @@ class ModToolInfo(ModTool):
         mod_info['base_dir'] = base_dir
         os.chdir(mod_info['base_dir'])
         mod_info['modname'] = get_modname()
+        if self._info['version'] == '36' and os.path.isdir(os.path.join('include', mod_info['modname'])):
+            self._info['version'] = '37'
+        mod_info['version'] = self._info['version']
+        if 'is_component' in self._info.keys():
+            mod_info['is_component'] = True
         mod_info['incdirs'] = []
         mod_incl_dir = os.path.join(mod_info['base_dir'], 'include')
         if os.path.isdir(os.path.join(mod_incl_dir, mod_info['modname'])):
@@ -104,8 +110,16 @@ class ModToolInfo(ModTool):
         """ Output the module info in human-readable format """
         index_names = {'base_dir': 'Base directory',
                        'modname':  'Module name',
+                       'is_component':  'Is GR component',
                        'build_dir': 'Build directory',
                        'incdirs': 'Include directories'}
         for key in mod_info.keys():
-            print '%19s: %s' % (index_names[key], mod_info[key])
+            if key == 'version':
+                print "        API version: %s" % {
+                        '36': 'pre-3.7',
+                        '37': 'post-3.7',
+                        'autofoo': 'Autotools (pre-3.5)'
+                        }[mod_info['version']]
+            else:
+                print '%19s: %s' % (index_names[key], mod_info[key])
 

@@ -48,18 +48,6 @@ class ModTool(object):
         parser.add_option_group(ogroup)
         return parser
 
-    def _setup_files(self):
-        """ Initialise the self._file[] dictionary """
-        if not self._skip_subdirs['swig']:
-            self._file['swig'] = os.path.join('swig', self._get_mainswigfile())
-        self._file['qalib'] = os.path.join('lib', 'qa_%s.cc' % self._info['modname'])
-        self._file['pyinit'] = os.path.join('python', '__init__.py')
-        self._file['cmlib'] = os.path.join('lib', 'CMakeLists.txt')
-        self._file['cmgrc'] = os.path.join('grc', 'CMakeLists.txt')
-        self._file['cmpython'] = os.path.join('python', 'CMakeLists.txt')
-        self._file['cminclude'] = os.path.join('include', 'CMakeLists.txt')
-        self._file['cmswig'] = os.path.join('swig', 'CMakeLists.txt')
-
     def setup(self):
         """ Initialise all internal variables, such as the module name etc. """
         (options, self.args) = self.parser.parse_args()
@@ -68,13 +56,13 @@ class ModTool(object):
             print "No GNU Radio module found in the given directory. Quitting."
             sys.exit(1)
         print "Operating in directory " + self._dir
-
         if options.module_name is not None:
             self._info['modname'] = options.module_name
         else:
             self._info['modname'] = get_modname()
         print "GNU Radio module name identified: " + self._info['modname']
-
+        if self._info['version'] == '36' and os.path.isdir(os.path.join('include', self._info['modname'])):
+            self._info['version'] = '37'
         if options.skip_lib or not self._has_subdirs['lib']:
             self._skip_subdirs['lib'] = True
         if options.skip_python or not self._has_subdirs['python']:
@@ -84,15 +72,24 @@ class ModTool(object):
         if options.skip_grc or not self._has_subdirs['grc']:
             self._skip_subdirs['grc'] = True
         self._info['blockname'] = options.block_name
-        self._info['includedir'] = 'include'
         self.options = options
         self._setup_files()
 
-
-    def run(self):
-        """ Override this. """
-        pass
-
+    def _setup_files(self):
+        """ Initialise the self._file[] dictionary """
+        if not self._skip_subdirs['swig']:
+            self._file['swig'] = os.path.join('swig',   self._get_mainswigfile())
+        self._file['qalib']    = os.path.join('lib',    'qa_%s.cc' % self._info['modname'])
+        self._file['pyinit']   = os.path.join('python', '__init__.py')
+        self._file['cmlib']    = os.path.join('lib',    'CMakeLists.txt')
+        self._file['cmgrc']    = os.path.join('grc',    'CMakeLists.txt')
+        self._file['cmpython'] = os.path.join('python', 'CMakeLists.txt')
+        if self._info['version'] in ('37', 'component'):
+            self._info['includedir'] = os.path.join('include', self._info['modname'])
+        else:
+            self._info['includedir'] = 'include'
+        self._file['cminclude'] = os.path.join(self._info['includedir'], 'CMakeLists.txt')
+        self._file['cmswig'] = os.path.join('swig', 'CMakeLists.txt')
 
     def _check_directory(self, directory):
         """ Guesses if dir is a valid GNU Radio module directory by looking for
@@ -106,17 +103,21 @@ class ModTool(object):
             print "Can't read or chdir to directory %s." % directory
             return False
         for f in files:
-            if (os.path.isfile(f) and
-                    f == 'CMakeLists.txt' and
-                    re.search('find_package\(GnuradioCore\)', open(f).read()) is not None):
-                has_makefile = True
+            if os.path.isfile(f) and f == 'CMakeLists.txt':
+                if re.search('find_package\(GnuradioCore\)', open(f).read()) is not None:
+                    self._info['version'] = '36' # Might be 37, check that later
+                    has_makefile = True
+                elif re.search('GR_REGISTER_COMPONENT', open(f).read()) is not None:
+                    self._info['version'] = '36' # Might be 37, check that later
+                    self._info['is_component'] = True
+                    has_makefile = True
+            # TODO search for autofoo
             elif os.path.isdir(f):
                 if (f in self._has_subdirs.keys()):
                     self._has_subdirs[f] = True
                 else:
                     self._skip_subdirs[f] = True
         return bool(has_makefile and (self._has_subdirs.values()))
-
 
     def _get_mainswigfile(self):
         """ Find out which name the main SWIG file has. In particular, is it
@@ -129,4 +130,7 @@ class ModTool(object):
                 return fname
         return None
 
+    def run(self):
+        """ Override this. """
+        pass
 

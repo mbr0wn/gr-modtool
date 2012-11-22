@@ -1,6 +1,6 @@
 /* -*- c++ -*- */
 /*
- * Copyright 2010 Free Software Foundation, Inc.
+ * Copyright 2012 Free Software Foundation, Inc.
  *
  * This file is part of GNU Radio
  *
@@ -19,32 +19,25 @@
  * the Free Software Foundation, Inc., 51 Franklin Street,
  * Boston, MA 02110-1301, USA.
  */
+
+#include <cppunit/TextTestRunner.h>
+#include <cppunit/XmlOutputter.h>
+
+#include <gr_unittests.h>
+#include "qa_howto.h"
 #include <iostream>
-#include "aadvark.h"
 
-void Aadvark::print() {
-  std::cout << "aadvark is " << aadvarkness << "/10 aadvarky" << std::endl;
+int
+main (int argc, char **argv)
+{
+  CppUnit::TextTestRunner runner;
+  std::ofstream xmlfile(get_unittest_path("howto.xml").c_str());
+  CppUnit::XmlOutputter *xmlout = new CppUnit::XmlOutputter(&runner.result(), xmlfile);
+
+  runner.addTest(qa_howto::suite());
+  runner.setOutputter(xmlout);
+
+  bool was_successful = runner.run("", false);
+
+  return was_successful ? 0 : 1;
 }
-
-Aadvark::Aadvark(int aaness): aadvarkness(aaness) {}
-
-bool aadvarky_enough(Aadvark aad) {
-  if (aad.get_aadvarkness() > 6)
-    return true;
-  else
-    return false;
-}
-
-int Aadvark::get_aadvarkness() {
-  return aadvarkness;
-}
-
-int main() {
-  Aadvark arold = Aadvark(6);
-  arold.print();
-  if (aadvarky_enough(arold))
-    std::cout << "He is aadvarky enough" << std::endl;
-  else
-    std::cout << "He is not aadvarky enough" << std::endl;
-}
-

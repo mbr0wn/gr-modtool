@@ -51,7 +51,10 @@ class ModToolMakeXML(ModTool):
         print "Warning: This is an experimental feature. Don't expect any magic."
         # 1) Go through lib/
         if not self._skip_subdirs['lib']:
-            files = self._search_files('lib', '*.cc')
+            if self._info['version'] == '37':
+                files = self._search_files('lib', '*_impl.cc')
+            else:
+                files = self._search_files('lib', '*.cc')
             for f in files:
                 if os.path.basename(f)[0:2] == 'qa':
                     continue
@@ -120,17 +123,20 @@ class ModToolMakeXML(ModTool):
             return p_type
         def _get_blockdata(fname_cc):
             """ Return the block name and the header file name from the .cc file name """
-            blockname = os.path.splitext(os.path.basename(fname_cc))[0]
-            fname_h = blockname + '.h'
-            blockname = blockname.replace(self._info['modname']+'_', '', 1) # Deprecate 3.7
+            blockname = os.path.splitext(os.path.basename(fname_cc.replace('_impl.', '.')))[0]
+            fname_h = (blockname + '.h').replace('_impl.', '.')
+            blockname = blockname.replace(self._info['modname']+'_', '', 1)
             return (blockname, fname_h)
         # Go, go, go
         print "Making GRC bindings for %s..." % fname_cc
         (blockname, fname_h) = _get_blockdata(fname_cc)
+        print blockname
         try:
             parser = ParserCCBlock(fname_cc,
-                                   os.path.join('include', fname_h),
-                                   blockname, _type_translate
+                                   os.path.join(self._info['includedir'], fname_h),
+                                   blockname,
+                                   self._info['version'],
+                                   _type_translate
                                   )
         except IOError:
             print "Can't open some of the files necessary to parse %s." % fname_cc

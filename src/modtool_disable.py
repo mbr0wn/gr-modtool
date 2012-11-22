@@ -3,7 +3,6 @@
 import os
 import re
 import sys
-import glob
 from optparse import OptionGroup
 
 from modtool_base import ModTool
@@ -55,6 +54,7 @@ class ModToolDisable(ModTool):
             try:
                 initfile = open(self._file['pyinit']).read()
             except IOError:
+                print "Could not edit __init__.py, that might be a problem."
                 return False
             pymodname = os.path.splitext(fname)[0]
             initfile = re.sub(r'((from|import)\s+\b'+pymodname+r'\b)', r'#\1', initfile)
@@ -62,22 +62,34 @@ class ModToolDisable(ModTool):
             return False
         def _handle_cc_qa(cmake, fname):
             """ Do stuff for cc qa """
-            cmake.comment_out_lines('add_executable.*'+fname)
-            cmake.comment_out_lines('target_link_libraries.*'+os.path.splitext(fname)[0])
-            cmake.comment_out_lines('GR_ADD_TEST.*'+os.path.splitext(fname)[0])
+            if self._info['version'] == '37':
+                cmake.comment_out_lines('\$\{CMAKE_CURRENT_SOURCE_DIR\}/'+fname)
+                fname_base = os.path.splitext(fname)[0]
+                ed = CMakeFileEditor(self._file['qalib']) # Abusing the CMakeFileEditor...
+                ed.comment_out_lines('#include\s+"%s.h"' % fname_base, comment_str='//')
+                ed.comment_out_lines('%s::suite\(\)' % fname_base, comment_str='//')
+                ed.write()
+            elif self._info['version'] == '36':
+                cmake.comment_out_lines('add_executable.*'+fname)
+                cmake.comment_out_lines('target_link_libraries.*'+os.path.splitext(fname)[0])
+                cmake.comment_out_lines('GR_ADD_TEST.*'+os.path.splitext(fname)[0])
             return True
         def _handle_h_swig(cmake, fname):
             """ Comment out include files from the SWIG file,
             as well as the block magic """
             swigfile = open(self._file['swig']).read()
-            (swigfile, nsubs) = re.subn('(.include\s+"'+fname+'")', r'//\1', swigfile)
+            (swigfile, nsubs) = re.subn('(.include\s+"(%s/)?%s")' % (
+                                        self._info['modname'], fname),
+                                        r'//\1', swigfile)
             if nsubs > 0:
                 print "Changing %s..." % self._file['swig']
             if nsubs > 1: # Need to find a single BLOCK_MAGIC
-                blockname = os.path.splitext(fname[len(self._info['modname'])+1:])[0] # DEPRECATE 3.7
-                (swigfile, nsubs) = re.subn('(GR_SWIG_BLOCK_MAGIC.+'+blockname+'.+;)', r'//\1', swigfile)
+                blockname = os.path.splitext(fname[len(self._info['modname'])+1:])[0]
+                if self._info['version'] == '37':
+                    blockname = os.path.splitext(fname)[0]
+                (swigfile, nsubs) = re.subn('(GR_SWIG_BLOCK_MAGIC2?.+%s.+;)' % blockname, r'//\1', swigfile)
                 if nsubs > 1:
-                    print "Hm, something didn't go right while editing %s." % self._file['swig']
+                    print "Hm, changed more then expected while editing %s." % self._file['swig']
             open(self._file['swig'], 'w').write(swigfile)
             return False
         def _handle_i_swig(cmake, fname):
@@ -85,9 +97,11 @@ class ModToolDisable(ModTool):
             as well as the block magic """
             swigfile = open(self._file['swig']).read()
             blockname = os.path.splitext(fname[len(self._info['modname'])+1:])[0]
+            if self._info['version'] == '37':
+                blockname = os.path.splitext(fname)[0]
             swigfile = re.sub('(%include\s+"'+fname+'")', r'//\1', swigfile)
             print "Changing %s..." % self._file['swig']
-            swigfile = re.sub('(GR_SWIG_BLOCK_MAGIC.+'+blockname+'.+;)', r'//\1', swigfile)
+            swigfile = re.sub('(GR_SWIG_BLOCK_MAGIC2?.+'+blockname+'.+;)', r'//\1', swigfile)
             open(self._file['swig'], 'w').write(swigfile)
             return False
         # List of special rules: 0: subdir, 1: filename re match, 2: function
@@ -95,13 +109,19 @@ class ModToolDisable(ModTool):
                 ('python', 'qa.+py$', _handle_py_qa),
                 ('python', '^(?!qa).+py$', _handle_py_mod),
                 ('lib', 'qa.+\.cc$', _handle_cc_qa),
+                ('include/%s' % self._info['modname'], '.+\.h$', _handle_h_swig),
                 ('include', '.+\.h$', _handle_h_swig),
                 ('swig', '.+\.i$', _handle_i_swig)
         )
         for subdir in self._subdirs:
             if self._skip_subdirs[subdir]: continue
+            if self._info['version'] == '37' and subdir == 'include':
+                subdir = 'include/%s' % self._info['modname']
+            try:
+                cmake = CMakeFileEditor(os.path.join(subdir, 'CMakeLists.txt'))
+            except IOError:
+                continue
             print "Traversing %s..." % subdir
-            cmake = CMakeFileEditor(os.path.join(subdir, 'CMakeLists.txt'))
             filenames = cmake.find_filenames_match(self._info['pattern'])
             yes = self._info['yes']
             for fname in filenames:
@@ -120,5 +140,5 @@ class ModToolDisable(ModTool):
                 if not file_disabled:
                     cmake.disable_file(fname)
             cmake.write()
-        print "Careful: gr_modtool disable does not resolve dependencies."
+        print "Careful: 'gr_modtool disable' does not resolve dependencies."
 

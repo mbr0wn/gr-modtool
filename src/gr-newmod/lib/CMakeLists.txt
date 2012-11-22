@@ -1,4 +1,6 @@
-# Copyright 2011 Free Software Foundation, Inc.
+# Copyright 2011,2012 Free Software Foundation, Inc.
+#
+# This file is part of GNU Radio
 #
 # GNU Radio is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,6 +22,9 @@
 ########################################################################
 include(GrPlatform) #define LIB_SUFFIX
 
+include_directories(${Boost_INCLUDE_DIR})
+link_directories(${Boost_LIBRARY_DIRS})
+
 add_library(gnuradio-howto SHARED )
 target_link_libraries(gnuradio-howto ${Boost_LIBRARIES} ${GRUEL_LIBRARIES} ${GNURADIO_CORE_LIBRARIES})
 set_target_properties(gnuradio-howto PROPERTIES DEFINE_SYMBOL "gnuradio_howto_EXPORTS")
@@ -36,10 +41,23 @@ install(TARGETS gnuradio-howto
 ########################################################################
 # Build and register unit test
 ########################################################################
-find_package(Boost COMPONENTS unit_test_framework)
-
 include(GrTest)
-set(GR_TEST_TARGET_DEPS gnuradio-howto)
-#turn each test cpp file into an executable with an int main() function
-add_definitions(-DBOOST_TEST_DYN_LINK -DBOOST_TEST_MAIN)
 
+include_directories(${CPPUNIT_INCLUDE_DIRS})
+
+list(APPEND test_howto_sources
+  ${CMAKE_CURRENT_SOURCE_DIR}/test_howto.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/qa_howto.cc
+)
+
+add_executable(test-howto ${test_howto_sources})
+
+target_link_libraries(
+  test-howto
+  ${GNURADIO_CORE_LIBRARIES}
+  ${Boost_LIBRARIES}
+  ${CPPUNIT_LIBRARIES}
+  gnuradio-howto
+)
+
+GR_ADD_TEST(test_howto test-howto)

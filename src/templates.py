@@ -4,6 +4,8 @@ from datetime import datetime
 
 ### Templates ################################################################
 Templates = {}
+Templates36 = {}
+
 # Default licence
 Templates['defaultlicense'] = '''
 Copyright %d <+YOU OR YOUR COMPANY+>.
@@ -24,22 +26,80 @@ the Free Software Foundation, Inc., 51 Franklin Street,
 Boston, MA 02110-1301, USA.
 ''' % datetime.now().year
 
+# Header file of a sync/decimator/interpolator block
+Templates['block_impl_h'] = '''/* -*- c++ -*- */
+${str_to_fancyc_comment($license)}
+\#ifndef INCLUDED_${modname.upper()}_${blockname.upper()}_IMPL_H
+\#define INCLUDED_${modname.upper()}_${blockname.upper()}_IMPL_H
+
+\#include <${modname}/${blockname}.h>
+
+namespace gr {
+  namespace ${modname} {
+
+    class ${blockname}_impl : public ${blockname}
+    {
+    private:
+      // Nothing to declare in this block.
+
+    public:
+      ${blockname}_impl(${strip_default_values($arglist)});
+      ~${blockname}_impl();
+
+#if $blocktype == 'general'
+      // Where all the action really happens
+      int general_work(int noutput_items,
+		       gr_vector_int &ninput_items,
+		       gr_vector_const_void_star &input_items,
+		       gr_vector_void_star &output_items);
+#else if $blocktype == 'hier'
+#silent pass
+#else
+      // Where all the action really happens
+      int work(int noutput_items,
+	       gr_vector_const_void_star &input_items,
+	       gr_vector_void_star &output_items);
+#end if
+    };
+
+  } // namespace ${modname}
+} // namespace gr
+
+\#endif /* INCLUDED_${modname.upper()}_${blockname.upper()}_IMPL_H */
+
+'''
+
 # C++ file of a GR block
-Templates['block_cpp'] = '''/* -*- c++ -*- */
+Templates['block_impl_cpp'] = '''/* -*- c++ -*- */
 ${str_to_fancyc_comment($license)}
 \#ifdef HAVE_CONFIG_H
 \#include "config.h"
 \#endif
 
 \#include <gr_io_signature.h>
-\#include "${modname}_${blockname}.h"
+#if $blocktype == 'noblock'
+\#include <${modname}/${blockname}.h>
+#else
+\#include "${blockname}_impl.h"
+#end if
 
+namespace gr {
+  namespace ${modname} {
 
-${modname}_${blockname}_sptr
-${modname}_make_${blockname} (${strip_default_values($arglist)})
-{
-	return gnuradio::get_initial_sptr (new ${modname}_${blockname}(${strip_arg_types($arglist)}));
-}
+#if $blocktype == 'noblock'
+    $blockname::${blockname}(${strip_default_values($arglist)})
+    {
+    }
+
+    $blockname::~${blockname}()
+    {
+    }
+#else
+    ${blockname}::sptr
+    ${blockname}::make(${strip_default_values($arglist)})
+    {
+      return gnuradio::get_initial_sptr (new ${blockname}_impl(${strip_arg_types($arglist)}));
+    }
 
 #if $blocktype == 'decimator'
 #set $decimation = ', <+decimation+>'
@@ -56,122 +116,126 @@ ${modname}_make_${blockname} (${strip_default_values($arglist)})
 #if $blocktype == 'source'
 #set $outputsig = '0, 0, 0'
 #else
-#set $outputsig = '<+MIN_OUT+>, <+MAX_OUT+>, sizeof (<+float+>)'
+#set $outputsig = '<+MIN_IN+>, <+MAX_IN+>, sizeof (<+float+>)'
 #end if
-
-/*
- * The private constructor
- */
-${modname}_${blockname}::${modname}_${blockname} (${strip_default_values($arglist)})
-  : gr_sync_block ("${blockname}",
-		   gr_make_io_signature($inputsig),
-		   gr_make_io_signature($outputsig)$decimation)
-{
+    /*
+     * The private constructor
+     */
+    ${blockname}_impl::${blockname}_impl(${strip_default_values($arglist)})
+      : ${grblocktype}("${blockname}",
+		      gr_make_io_signature($inputsig),
+		      gr_make_io_signature($outputsig)$decimation)
 #if $blocktype == 'hier'
-		connect(self(), 0, d_firstblock, 0);
-		// connect other blocks
-		connect(d_lastblock, 0, self(), 0);
+    {
+        connect(self(), 0, d_firstblock, 0);
+        // connect other blocks
+        connect(d_lastblock, 0, self(), 0);
+    }
 #else
-	// Put in <+constructor stuff+> here
+    {}
 #end if
-}
 
-
-/*
- * Our virtual destructor.
- */
-${modname}_${blockname}::~${modname}_${blockname}()
-{
-	// Put in <+destructor stuff+> here
-}
-
+    /*
+     * Our virtual destructor.
+     */
+    ${blockname}_impl::~${blockname}_impl()
+    {
+    }
 
 #if $blocktype == 'general'
-int
-${modname}_${blockname}::general_work (int noutput_items,
-				   gr_vector_int &ninput_items,
-				   gr_vector_const_void_star &input_items,
-				   gr_vector_void_star &output_items)
-{
-	const float *in = (const float *) input_items[0];
-	float *out = (float *) output_items[0];
+    int
+    ${blockname}_impl::general_work (int noutput_items,
+                       gr_vector_int &ninput_items,
+                       gr_vector_const_void_star &input_items,
+                       gr_vector_void_star &output_items)
+    {
+        const float *in = (const float *) input_items[0];
+        float *out = (float *) output_items[0];
 
-	// Do <+signal processing+>
-	// Tell runtime system how many input items we consumed on
-	// each input stream.
-	consume_each (noutput_items);
+        // Do <+signal processing+>
+        // Tell runtime system how many input items we consumed on
+        // each input stream.
+        consume_each (noutput_items);
 
-	// Tell runtime system how many output items we produced.
-	return noutput_items;
-}
+        // Tell runtime system how many output items we produced.
+        return noutput_items;
+    }
+
 #else if $blocktype == 'hier'
-#pass
+#silent pass
 #else
-int
-${modname}_${blockname}::work(int noutput_items,
-		  gr_vector_const_void_star &input_items,
-		  gr_vector_void_star &output_items)
-{
-	const float *in = (const float *) input_items[0];
-	float *out = (float *) output_items[0];
+    int
+    ${blockname}_impl::work(int noutput_items,
+			  gr_vector_const_void_star &input_items,
+			  gr_vector_void_star &output_items)
+    {
+        const float *in = (const float *) input_items[0];
+        float *out = (float *) output_items[0];
 
-	// Do <+signal processing+>
+        // Do <+signal processing+>
 
-	// Tell runtime system how many output items we produced.
-	return noutput_items;
-}
+        // Tell runtime system how many output items we produced.
+        return noutput_items;
+    }
 #end if
+#end if
+
+  } /* namespace ${modname} */
+} /* namespace gr */
 
 '''
 
 # Block definition header file (for include/)
-Templates['block_h'] = '''/* -*- c++ -*- */
+Templates['block_def_h'] = '''/* -*- c++ -*- */
 ${str_to_fancyc_comment($license)}
 
 \#ifndef INCLUDED_${modname.upper()}_${blockname.upper()}_H
 \#define INCLUDED_${modname.upper()}_${blockname.upper()}_H
 
-\#include <${modname}_api.h>
+\#include <${modname}/api.h>
 \#include <${grblocktype}.h>
 
-class ${modname}_${blockname};
+namespace gr {
+  namespace ${modname} {
 
-typedef boost::shared_ptr<${modname}_${blockname}> ${modname}_${blockname}_sptr;
-
-${modname.upper()}_API ${modname}_${blockname}_sptr ${modname}_make_${blockname} ($arglist);
-
-/*!
- * \\brief <+description+>
- * \ingroup block
- *
- */
-class ${modname.upper()}_API ${modname}_${blockname} : public $grblocktype
-{
- private:
-	friend ${modname.upper()}_API ${modname}_${blockname}_sptr ${modname}_make_${blockname} (${strip_default_values($arglist)});
-
-  ${modname}_${blockname}(${strip_default_values($arglist)});
-
- public:
-  ~${modname}_${blockname}();
-
-#if $blocktype == 'general'
-	// Where all the action really happens
-	int general_work (int noutput_items,
-	    gr_vector_int &ninput_items,
-	    gr_vector_const_void_star &input_items,
-	    gr_vector_void_star &output_items);
-#else if $blocktype == 'hier'
-#pass
+#if $blocktype == 'noblock'
+    /*!
+     * \\brief <+description+>
+     *
+     */
+    class ${modname.upper()}_API $blockname
+    {
+        ${blockname}(${arglist});
+        ~${blockname}();
+        private:
+    };
 #else
-	// Where all the action really happens
-	int work (int noutput_items,
-	    gr_vector_const_void_star &input_items,
-	    gr_vector_void_star &output_items);
-#end if
-};
+    /*!
+     * \\brief <+description of block+>
+     * \ingroup block
+     *
+     */
+    class ${modname.upper()}_API ${blockname} : virtual public $grblocktype
+    {
+    public:
+       typedef boost::shared_ptr<${blockname}> sptr;
 
-#endif /* INCLUDED_${modname.upper()}_${blockname.upper()}_H */
+       /*!
+        * \\brief Return a shared_ptr to a new instance of ${modname}::${blockname}.
+        *
+        * To avoid accidental use of raw pointers, ${modname}::${blockname}'s
+        * constructor is in a private implementation
+        * class. ${modname}::${blockname}::make is the public interface for
+        * creating new instances.
+        */
+       static sptr make($arglist);
+    };
+#end if
+
+  } // namespace ${modname}
+} // namespace gr
+
+\#endif /* INCLUDED_${modname.upper()}_${blockname.upper()}_H */
 
 '''
 
@@ -278,20 +342,55 @@ class ${blockname}(${parenttype}):
 Templates['qa_cpp'] = '''/* -*- c++ -*- */
 ${str_to_fancyc_comment($license)}
 
-\#include <boost/test/unit_test.hpp>
+\#include "qa_${blockname}.h"
+\#include <cppunit/TestAssert.h>
 
-BOOST_AUTO_TEST_CASE(qa_${modname}_${blockname}_t1){
-    BOOST_CHECK_EQUAL(2 + 2, 4);
-    // TODO BOOST_* test macros here
-}
+\#include <$modname/${blockname}.h>
 
-BOOST_AUTO_TEST_CASE(qa_${modname}_${blockname}_t2){
-    BOOST_CHECK_EQUAL(2 + 2, 4);
-    // TODO BOOST_* test macros here
-}
+namespace gr {
+  namespace ${modname} {
+
+    void
+    qa_${blockname}::t1()
+    {
+        // Put test here
+    }
+
+  } /* namespace ${modname} */
+} /* namespace gr */
 
 '''
 
+# Header file for QA
+Templates['qa_h'] = '''/* -*- c++ -*- */
+${str_to_fancyc_comment($license)}
+
+\#ifndef _QA_${blockname.upper()}_H_
+\#define _QA_${blockname.upper()}_H_
+
+\#include <cppunit/extensions/HelperMacros.h>
+\#include <cppunit/TestCase.h>
+
+namespace gr {
+  namespace ${modname} {
+
+    class qa_${blockname} : public CppUnit::TestCase
+    {
+    public:
+      CPPUNIT_TEST_SUITE(qa_${blockname});
+      CPPUNIT_TEST(t1);
+      CPPUNIT_TEST_SUITE_END();
+
+    private:
+      void t1();
+    };
+
+  } /* namespace ${modname} */
+} /* namespace gr */
+
+\#endif /* _QA_${blockname.upper()}_H_ */
+
+'''
 
 # Python QA code
 Templates['qa_python'] = '''\#!/usr/bin/env python
@@ -321,53 +420,6 @@ class qa_$blockname (gr_unittest.TestCase):
 
 if __name__ == '__main__':
     gr_unittest.run(qa_${blockname}, "qa_${blockname}.xml")
-'''
-
-# Non-block file, C++ header
-Templates['noblock_h'] = '''/* -*- c++ -*- */
-${str_to_fancyc_comment($license)}
-\#ifndef INCLUDED_${modname.upper()}_${blockname.upper()}_H
-\#define INCLUDED_${modname.upper()}_${blockname.upper()}_H
-
-\#include <${modname}_api.h>
-
-class ${modname.upper()}_API $blockname
-{
-	${blockname}(${arglist});
-	~${blockname}();
- private:
-};
-
-\#endif /* INCLUDED_${modname.upper()}_${blockname.upper()}_H */
-
-'''
-
-# Non-block file, C++ source
-Templates['noblock_cpp'] = '''/* -*- c++ -*- */
-${str_to_fancyc_comment($license)}
-
-\#ifdef HAVE_CONFIG_H
-\#include <config.h>
-\#endif
-
-\#include <${modname}_${blockname}.h>
-
-
-$blockname::${blockname}(${strip_default_values($arglist)})
-{
-}
-
-$blockname::~${blockname}()
-{
-}
-
-'''
-
-# Non-block file, Python source
-Templates['noblock_python'] = '''\#!/usr/bin/env python
-${str_to_python_comment($license)}
-#
-
 '''
 
 Templates['grc_xml'] = '''<?xml version="1.0"?>
@@ -410,16 +462,219 @@ Templates['grc_xml'] = '''<?xml version="1.0"?>
 </block>
 '''
 
-# Header file for QA
-Templates['qa_cmakeentry'] = """
-add_executable($basename $filename)
-target_link_libraries($basename gnuradio-$modname \${Boost_LIBRARIES})
-GR_ADD_TEST($basename $basename)
-"""
-
 # Usage
 Templates['usage'] = '''
 gr_modtool.py <command> [options] -- Run <command> with the given options.
 gr_modtool.py help -- Show a list of commands.
 gr_modtool.py help <command> -- Shows the help for a given command. '''
+
+# SWIG string
+Templates['swig_block_magic'] = """#if $version == '37'
+#set $mod_block_sep = '/'
+#set $block_magic_version = '2'
+#else
+#set $mod_block_sep = '_'
+#set $block_magic_version = ''
+#end if
+%include "${modname}${mod_block_sep}${blockname}.h"
+GR_SWIG_BLOCK_MAGIC${block_magic_version}($modname, $blockname);
+"""
+
+## Old stuff
+# C++ file of a GR block
+Templates['block_cpp36'] = '''/* -*- c++ -*- */
+${str_to_fancyc_comment($license)}
+\#ifdef HAVE_CONFIG_H
+\#include "config.h"
+\#endif
+
+#if $blocktype != 'noblock
+\#include <gr_io_signature.h>
+#end if
+\#include "${modname}_${blockname}.h"
+
+#if $blocktype != 'noblock
+$blockname::${blockname}(${strip_default_values($arglist)})
+{
+}
+
+$blockname::~${blockname}()
+{
+}
+#else
+${modname}_${blockname}_sptr
+${modname}_make_${blockname} (${strip_default_values($arglist)})
+{
+	return gnuradio::get_initial_sptr (new ${modname}_${blockname}(${strip_arg_types($arglist)}));
+}
+
+#if $blocktype == 'decimator'
+#set $decimation = ', <+decimation+>'
+#else if $blocktype == 'interpolator'
+#set $decimation = ', <+interpolation+>'
+#else
+#set $decimation = ''
+#end if
+#if $blocktype == 'sink'
+#set $inputsig = '0, 0, 0'
+#else
+#set $inputsig = '<+MIN_IN+>, <+MAX_IN+>, sizeof (<+float+>)'
+#end if
+#if $blocktype == 'source'
+#set $outputsig = '0, 0, 0'
+#else
+#set $outputsig = '<+MIN_OUT+>, <+MAX_OUT+>, sizeof (<+float+>)'
+#end if
+
+/*
+ * The private constructor
+ */
+${modname}_${blockname}::${modname}_${blockname} (${strip_default_values($arglist)})
+  : gr_sync_block ("${blockname}",
+		   gr_make_io_signature($inputsig),
+		   gr_make_io_signature($outputsig)$decimation)
+{
+#if $blocktype == 'hier'
+		connect(self(), 0, d_firstblock, 0);
+		// connect other blocks
+		connect(d_lastblock, 0, self(), 0);
+#else
+	// Put in <+constructor stuff+> here
+#end if
+}
+
+
+/*
+ * Our virtual destructor.
+ */
+${modname}_${blockname}::~${modname}_${blockname}()
+{
+	// Put in <+destructor stuff+> here
+}
+#end if
+
+
+#if $blocktype == 'general'
+int
+${modname}_${blockname}::general_work (int noutput_items,
+				   gr_vector_int &ninput_items,
+				   gr_vector_const_void_star &input_items,
+				   gr_vector_void_star &output_items)
+{
+	const float *in = (const float *) input_items[0];
+	float *out = (float *) output_items[0];
+
+	// Do <+signal processing+>
+	// Tell runtime system how many input items we consumed on
+	// each input stream.
+	consume_each (noutput_items);
+
+	// Tell runtime system how many output items we produced.
+	return noutput_items;
+}
+#else if $blocktype == 'hier'
+#pass
+#else
+int
+${modname}_${blockname}::work(int noutput_items,
+		  gr_vector_const_void_star &input_items,
+		  gr_vector_void_star &output_items)
+{
+	const float *in = (const float *) input_items[0];
+	float *out = (float *) output_items[0];
+
+	// Do <+signal processing+>
+
+	// Tell runtime system how many output items we produced.
+	return noutput_items;
+}
+#end if
+
+'''
+
+# Block definition header file (for include/)
+Templates['block_h36'] = '''/* -*- c++ -*- */
+${str_to_fancyc_comment($license)}
+
+\#ifndef INCLUDED_${modname.upper()}_${blockname.upper()}_H
+\#define INCLUDED_${modname.upper()}_${blockname.upper()}_H
+
+\#include <${modname}_api.h>
+#if $blocktype == 'noblock'
+class ${modname.upper()}_API $blockname
+{
+	${blockname}(${arglist});
+	~${blockname}();
+ private:
+};
+
+#else
+\#include <${grblocktype}.h>
+
+class ${modname}_${blockname};
+
+typedef boost::shared_ptr<${modname}_${blockname}> ${modname}_${blockname}_sptr;
+
+${modname.upper()}_API ${modname}_${blockname}_sptr ${modname}_make_${blockname} ($arglist);
+
+/*!
+ * \\brief <+description+>
+ * \ingroup block
+ *
+ */
+class ${modname.upper()}_API ${modname}_${blockname} : public $grblocktype
+{
+ private:
+	friend ${modname.upper()}_API ${modname}_${blockname}_sptr ${modname}_make_${blockname} (${strip_default_values($arglist)});
+
+  ${modname}_${blockname}(${strip_default_values($arglist)});
+
+ public:
+  ~${modname}_${blockname}();
+
+#if $blocktype == 'general'
+	// Where all the action really happens
+	int general_work (int noutput_items,
+	    gr_vector_int &ninput_items,
+	    gr_vector_const_void_star &input_items,
+	    gr_vector_void_star &output_items);
+#else if $blocktype == 'hier'
+#pass
+#else
+	// Where all the action really happens
+	int work (int noutput_items,
+	    gr_vector_const_void_star &input_items,
+	    gr_vector_void_star &output_items);
+#end if
+};
+#end if
+
+\#endif /* INCLUDED_${modname.upper()}_${blockname.upper()}_H */
+
+'''
+
+# C++ file for QA
+Templates['qa_cpp36'] = '''/* -*- c++ -*- */
+${str_to_fancyc_comment($license)}
+
+\#include <boost/test/unit_test.hpp>
+
+BOOST_AUTO_TEST_CASE(qa_${modname}_${blockname}_t1){
+    BOOST_CHECK_EQUAL(2 + 2, 4);
+    // TODO BOOST_* test macros here
+}
+
+BOOST_AUTO_TEST_CASE(qa_${modname}_${blockname}_t2){
+    BOOST_CHECK_EQUAL(2 + 2, 4);
+    // TODO BOOST_* test macros here
+}
+
+'''
+
+# Header file for QA
+Templates['qa_cmakeentry36'] = """
+add_executable($basename $filename)
+target_link_libraries($basename gnuradio-$modname \${Boost_LIBRARIES})
+GR_ADD_TEST($basename $basename)
+"""
 

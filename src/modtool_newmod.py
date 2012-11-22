@@ -5,6 +5,7 @@ import re
 import sys
 import base64
 import tarfile
+from optparse import OptionGroup
 
 from modtool_base import ModTool
 from newmod_tarfile import NEWMOD_TARFILE
@@ -20,9 +21,9 @@ class ModToolNewModule(ModTool):
     def setup_parser(self):
         " Initialise the option parser for 'gr_modtool.py newmod' "
         parser = ModTool.setup_parser(self)
-        #parser.usage = '%prog rm [options]. \n Call %prog without any options to run it interactively.'
-        #ogroup = OptionGroup(parser, "New out-of-tree module options")
-        #parser.add_option_group(ogroup)
+        parser.usage = '%prog rm [options]. \n Call %prog without any options to run it interactively.'
+        ogroup = OptionGroup(parser, "New out-of-tree module options")
+        parser.add_option_group(ogroup)
         return parser
 
     def setup(self):
@@ -49,7 +50,12 @@ class ModToolNewModule(ModTool):
             sys.exit(2)
 
     def run(self):
-        """ Go, go, go! """
+        """
+        * Unpack the tar.bz2 to the new locations
+        * Remove the bz2
+        * Open all files, rename howto and HOWTO to the module name
+        * Rename files and directories that contain the word howto
+        """
         print "Creating directory..."
         try:
             os.mkdir(self._dir)
@@ -65,19 +71,17 @@ class ModToolNewModule(ModTool):
         tar.close()
         os.unlink('tmp.tar.bz2')
         print "Replacing occurences of 'howto' to '%s'..." % self._info['modname'],
-        skip_dir_re = re.compile('^..cmake|^..apps|^..grc|doxyxml')
         for root, dirs, files in os.walk('.'):
-            if skip_dir_re.search(root):
-                continue
             for filename in files:
                 f = os.path.join(root, filename)
                 s = open(f, 'r').read()
                 s = s.replace('howto', self._info['modname'])
                 s = s.replace('HOWTO', self._info['modname'].upper())
                 open(f, 'w').write(s)
-                if filename[0:5] == 'howto':
-                    newfilename = filename.replace('howto', self._info['modname'])
-                    os.rename(f, os.path.join(root, newfilename))
+                if filename.find('howto') != -1:
+                    os.rename(f, os.path.join(root, filename.replace('howto', self._info['modname'])))
+            if os.path.basename(root) == 'howto':
+                os.rename(root, os.path.join(os.path.dirname(root), self._info['modname']))
         print "Done."
         print "Use 'gr_modtool add' to add a new block to this currently empty module."
 

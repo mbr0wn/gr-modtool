@@ -52,6 +52,7 @@ def append_from_hashtags(fid, newfile):
             fid.write(line)
 
 def main():
+    " Go, go, go! "
     fid = open('../gr_modtool.py', 'w')
     fid.write(open('fullscript_header.py', 'r').read())
     for fname in LIST_OF_FILES:

@@ -9,11 +9,12 @@ def dummy_translator(the_type, default_v=None):
 
 class ParserCCBlock(object):
     """ Class to read blocks written in C++ """
-    def __init__(self, filename_cc, filename_h, blockname, type_trans=dummy_translator):
+    def __init__(self, filename_cc, filename_h, blockname, version, type_trans=dummy_translator):
         self.code_cc = open(filename_cc).read()
         self.code_h  = open(filename_h).read()
         self.blockname = blockname
         self.type_trans = type_trans
+        self.version = version
 
     def read_io_signature(self):
         """ Scans a .cc file for an IO signature. """
@@ -75,12 +76,15 @@ class ParserCCBlock(object):
 
     def read_params(self):
         """ Read the parameters required to initialize the block """
-        make_regex = '(?<=_API)\s+\w+_sptr\s+\w+_make_\w+\s*\(([^)]*)\)'
+        if self.version == '37':
+            make_regex = 'static\s+sptr\s+make\s*\((?P<plist>(\([^\)]\)|[^)])*)\)'
+        else:
+            make_regex = '(?<=_API)\s+\w+_sptr\s+\w+_make_\w+\s*\((?P<plist>(\([^\)]\)|[^)])*)\)'
         make_match = re.compile(make_regex, re.MULTILINE).search(self.code_h)
         # Go through params
         params = []
         try:
-            param_str = make_match.group(1).strip()
+            param_str = make_match.group('plist').strip()
             if len(param_str) == 0:
                 return params
             for param in param_str.split(','):
