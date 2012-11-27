@@ -47,6 +47,8 @@ namespace gr {
       ~${blockname}_impl();
 
 #if $blocktype == 'general'
+      void forecast (int noutput_items, gr_vector_int &ninput_items_required);
+
       // Where all the action really happens
       int general_work(int noutput_items,
 		       gr_vector_int &ninput_items,
@@ -143,6 +145,12 @@ namespace gr {
     }
 
 #if $blocktype == 'general'
+    void
+    ${blockname}_imp::forecast (int noutput_items, gr_vector_int &ninput_items_required)
+    {
+        /* <+forecast+> e.g. ninput_items_required[0] = noutput_items */
+    }
+
     int
     ${blockname}_impl::general_work (int noutput_items,
                        gr_vector_int &ninput_items,
@@ -160,7 +168,6 @@ namespace gr {
         // Tell runtime system how many output items we produced.
         return noutput_items;
     }
-
 #else if $blocktype == 'hier'
 #silent pass
 #else
