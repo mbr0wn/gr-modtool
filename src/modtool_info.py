@@ -22,6 +22,8 @@ class ModToolInfo(ModTool):
         ogroup = OptionGroup(parser, "Info options")
         ogroup.add_option("--python-readable", action="store_true", default=None,
                 help="Return the output in a format that's easier to read for Python scripts.")
+        ogroup.add_option("--suggested-dirs", default=None, type="string",
+                help="Suggest typical include dirs if nothing better can be detected.")
         parser.add_option_group(ogroup)
         return parser
 
@@ -32,15 +34,13 @@ class ModToolInfo(ModTool):
     def run(self):
         """ Go, go, go! """
         mod_info = {}
-        base_dir = self._get_base_dir(self.options.directory)
-        # So we have to do that by hand
-        if base_dir is None:
+        mod_info['base_dir'] = self._get_base_dir(self.options.directory)
+        if mod_info['base_dir'] is None:
             if self.options.python_readable:
                 print '{}'
             else:
                 print "No module found."
             sys.exit(0)
-        mod_info['base_dir'] = base_dir
         os.chdir(mod_info['base_dir'])
         mod_info['modname'] = get_modname()
         if self._info['version'] == '36' and os.path.isdir(os.path.join('include', mod_info['modname'])):
@@ -81,29 +81,36 @@ class ModToolInfo(ModTool):
         for a file called CMakeCache.txt, which is created when running cmake.
         If that hasn't happened, the build dir cannot be detected, unless it's
         called 'build', which is then assumed to be the build dir. """
-        has_build_dir = os.path.isdir(os.path.join(mod_info['base_dir'], 'build'))
-        if (has_build_dir and os.path.isfile(os.path.join(mod_info['base_dir'], 'CMakeCache.txt'))):
-            return os.path.join(mod_info['base_dir'], 'build')
+        base_build_dir = mod_info['base_dir']
+        if 'is_component' in mod_info.keys():
+            (base_build_dir, rest_dir) = os.path.split(base_build_dir)
+        has_build_dir = os.path.isdir(os.path.join(base_build_dir , 'build'))
+        if (has_build_dir and os.path.isfile(os.path.join(base_build_dir, 'CMakeCache.txt'))):
+            return os.path.join(base_build_dir, 'build')
         else:
-            for (dirpath, dirnames, filenames) in os.walk(mod_info['base_dir']):
+            for (dirpath, dirnames, filenames) in os.walk(base_build_dir):
                 if 'CMakeCache.txt' in filenames:
                     return dirpath
         if has_build_dir:
-            return os.path.join(mod_info['base_dir'], 'build')
+            return os.path.join(base_build_dir, 'build')
         return None
 
     def _get_include_dirs(self, mod_info):
         """ Figure out include dirs for the make process. """
         inc_dirs = []
+        path_or_internal = {True: 'INTERNAL',
+                            False: 'PATH'}['is_component' in mod_info.keys()]
         try:
             cmakecache_fid = open(os.path.join(mod_info['build_dir'], 'CMakeCache.txt'))
             for line in cmakecache_fid:
-                if line.find('GNURADIO_CORE_INCLUDE_DIRS:PATH') != -1:
-                    inc_dirs += line.replace('GNURADIO_CORE_INCLUDE_DIRS:PATH=', '').strip().split(';')
-                if line.find('GRUEL_INCLUDE_DIRS:PATH') != -1:
-                    inc_dirs += line.replace('GRUEL_INCLUDE_DIRS:PATH=', '').strip().split(';')
+                if line.find('GNURADIO_CORE_INCLUDE_DIRS:%s' % path_or_internal) != -1:
+                    inc_dirs += line.replace('GNURADIO_CORE_INCLUDE_DIRS:%s=' % path_or_internal, '').strip().split(';')
+                if line.find('GRUEL_INCLUDE_DIRS:%s' % path_or_internal) != -1:
+                    inc_dirs += line.replace('GRUEL_INCLUDE_DIRS:%s=' % path_or_internal, '').strip().split(';')
         except IOError:
             pass
+        if len(inc_dirs) == 0 and self.options.suggested_dirs is not None:
+            inc_dirs = [os.path.normpath(path) for path in self.options.suggested_dirs.split(':') if os.path.isdir(path)]
         return inc_dirs
 
     def _pretty_print(self, mod_info):
