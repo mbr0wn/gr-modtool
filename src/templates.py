@@ -495,17 +495,17 @@ ${str_to_fancyc_comment($license)}
 \#include "config.h"
 \#endif
 
-#if $blocktype != 'noblock
+#if $blocktype != 'noblock'
 \#include <gr_io_signature.h>
 #end if
 \#include "${modname}_${blockname}.h"
 
-#if $blocktype != 'noblock
-$blockname::${blockname}(${strip_default_values($arglist)})
+#if $blocktype == 'noblock'
+${modname}_${blockname}::${modname}_${blockname}(${strip_default_values($arglist)})
 {
 }
 
-$blockname::~${blockname}()
+${modname}_${blockname}::~${modname}_${blockname}()
 {
 }
 #else
@@ -537,13 +537,13 @@ ${modname}_make_${blockname} (${strip_default_values($arglist)})
  * The private constructor
  */
 ${modname}_${blockname}::${modname}_${blockname} (${strip_default_values($arglist)})
-  : gr_sync_block ("${blockname}",
+  : ${grblocktype} ("${blockname}",
 		   gr_make_io_signature($inputsig),
 		   gr_make_io_signature($outputsig)$decimation)
 {
 #if $blocktype == 'hier'
 		connect(self(), 0, d_firstblock, 0);
-		// connect other blocks
+		// <+connect other blocks+>
 		connect(d_lastblock, 0, self(), 0);
 #else
 	// Put in <+constructor stuff+> here
