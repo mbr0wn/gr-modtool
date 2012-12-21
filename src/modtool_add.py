@@ -251,7 +251,7 @@ class ModToolAdd(ModTool):
         fname_py_qa = 'qa_' + self._info['blockname'] + '.py'
         self._write_tpl('qa_python', 'python', fname_py_qa)
         os.chmod(os.path.join('python', fname_py_qa), 0755)
-        if self.options.skip_cmakefiles:
+        if self.options.skip_cmakefiles or CMakeFileEditor(self._file['cmpython']).check_for_glob('qa_*.py'):
             return
         print "Editing python/CMakeLists.txt..."
         open(self._file['cmpython'], 'a').write(
@@ -284,7 +284,7 @@ class ModToolAdd(ModTool):
         """
         fname_grc = self._info['fullblockname'] + '.xml'
         self._write_tpl('grc_xml', 'grc', fname_grc)
-        if self.options.skip_cmakefiles:
+        if self.options.skip_cmakefiles or ed.check_for_glob('*.xml'):
             return
         print "Editing grc/CMakeLists.txt..."
         ed = CMakeFileEditor(self._file['cmgrc'], '\n    ')

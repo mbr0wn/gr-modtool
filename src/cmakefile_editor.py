@@ -81,10 +81,17 @@ class CMakeFileEditor(object):
         elif nsubs > 1:
             print "Warning: Replaced %s %d times (instead of once). Check the CMakeFile.txt manually." % (fname, nsubs)
 
-
     def comment_out_lines(self, pattern, comment_str='#'):
         """ Comments out all lines that match with pattern """
         for line in self.cfile.splitlines():
             if re.search(pattern, line):
                 self.cfile = self.cfile.replace(line, comment_str+line)
+
+    def check_for_glob(self, globstr):
+        """ Returns true if a glob as in globstr is found in the cmake file """
+        glob_re = r'GLOB\s[a-z_]+\s"%s"' % globstr.replace('*', '\*')
+        if re.search(glob_re, self.cfile, flags=re.MULTILINE|re.IGNORECASE) is not None: 
+            return True
+        else:
+            return False
 

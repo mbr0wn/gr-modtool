@@ -101,7 +101,7 @@ class ModToolMakeXML(ModTool):
         grc_generator.save(os.path.join('grc', fname_xml))
         if not self._skip_subdirs['grc']:
             ed = CMakeFileEditor(self._file['cmgrc'])
-            if re.search(fname_xml, ed.cfile) is None:
+            if re.search(fname_xml, ed.cfile) is None and not ed.check_for_glob('*.xml'):
                 print "Adding GRC bindings to grc/CMakeLists.txt..."
                 ed.append_value('install', fname_xml, 'DESTINATION[^()]+')
                 ed.write()
