@@ -146,7 +146,7 @@ namespace gr {
 
 #if $blocktype == 'general'
     void
-    ${blockname}_imp::forecast (int noutput_items, gr_vector_int &ninput_items_required)
+    ${blockname}_impl::forecast (int noutput_items, gr_vector_int &ninput_items_required)
     {
         /* <+forecast+> e.g. ninput_items_required[0] = noutput_items */
     }
@@ -562,6 +562,12 @@ ${modname}_${blockname}::~${modname}_${blockname}()
 
 
 #if $blocktype == 'general'
+void
+${modname}_${blockname}::forecast (int noutput_items, gr_vector_int &ninput_items_required)
+{
+/* <+forecast+> e.g. ninput_items_required[0] = noutput_items */
+}
+
 int
 ${modname}_${blockname}::general_work (int noutput_items,
 				   gr_vector_int &ninput_items,
@@ -640,6 +646,8 @@ class ${modname.upper()}_API ${modname}_${blockname} : public $grblocktype
   ~${modname}_${blockname}();
 
 #if $blocktype == 'general'
+void forecast (int noutput_items, gr_vector_int &ninput_items_required);
+
 	// Where all the action really happens
 	int general_work (int noutput_items,
 	    gr_vector_int &ninput_items,
