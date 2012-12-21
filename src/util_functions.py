@@ -109,3 +109,9 @@ def xml_indent(elem, level=0):
     else:
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
+
+def ask_yes_no(question, default):
+    """ Asks a binary question. Returns True for yes, False for no.
+    default is given as a boolean. """
+    question += {True: ' [Y/n] ', False: ' [y/N] '}[default]
+    return raw_input(question).lower() != {True: 'n', False: 'y'}[default]

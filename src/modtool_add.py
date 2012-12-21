@@ -5,7 +5,7 @@ import sys
 import re
 from optparse import OptionGroup
 
-from util_functions import append_re_line_sequence
+from util_functions import append_re_line_sequence, ask_yes_no
 from cmakefile_editor import CMakeFileEditor
 from modtool_base import ModTool
 from templates import Templates
@@ -84,11 +84,11 @@ class ModToolAdd(ModTool):
         if not (self._info['blocktype'] in ('noblock') or self._skip_subdirs['python']):
             self._add_py_qa = options.add_python_qa
             if self._add_py_qa is None:
-                self._add_py_qa = (raw_input('Add Python QA code? [Y/n] ').lower() != 'n')
+                self._add_py_qa = ask_yes_no('Add Python QA code?', True)
         if self._info['lang'] == 'cpp':
             self._add_cc_qa = options.add_cpp_qa
             if self._add_cc_qa is None:
-                self._add_cc_qa = (raw_input('Add C++ QA code? [Y/n] ').lower() != 'n')
+                self._add_cc_qa = ask_yes_no('Add C++ QA code?', not self._add_py_qa)
         if self._info['version'] == 'autofoo' and not self.options.skip_cmakefiles:
             print "Warning: Autotools modules are not supported. ",
             print "Files will be created, but Makefiles will not be edited."
@@ -284,10 +284,10 @@ class ModToolAdd(ModTool):
         """
         fname_grc = self._info['fullblockname'] + '.xml'
         self._write_tpl('grc_xml', 'grc', fname_grc)
+        ed = CMakeFileEditor(self._file['cmgrc'], '\n    ')
         if self.options.skip_cmakefiles or ed.check_for_glob('*.xml'):
             return
         print "Editing grc/CMakeLists.txt..."
-        ed = CMakeFileEditor(self._file['cmgrc'], '\n    ')
         ed.append_value('install', fname_grc, 'DESTINATION[^()]+')
         ed.write()
 
