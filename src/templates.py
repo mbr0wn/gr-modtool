@@ -219,7 +219,7 @@ namespace gr {
 #else
     /*!
      * \\brief <+description of block+>
-     * \ingroup block
+     * \ingroup ${modname}
      *
      */
     class ${modname.upper()}_API ${blockname} : virtual public $grblocktype
@@ -632,7 +632,7 @@ ${modname.upper()}_API ${modname}_${blockname}_sptr ${modname}_make_${blockname}
 
 /*!
  * \\brief <+description+>
- * \ingroup block
+ * \ingroup ${modname}
  *
  */
 class ${modname.upper()}_API ${modname}_${blockname} : public $grblocktype
