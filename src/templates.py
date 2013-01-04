@@ -110,12 +110,12 @@ namespace gr {
 #else
 #set $decimation = ''
 #end if
-#if $blocktype == 'sink'
+#if $blocktype == 'source'
 #set $inputsig = '0, 0, 0'
 #else
 #set $inputsig = '<+MIN_IN+>, <+MAX_IN+>, sizeof (<+float+>)'
 #end if
-#if $blocktype == 'source'
+#if $blocktype == 'sink'
 #set $outputsig = '0, 0, 0'
 #else
 #set $outputsig = '<+MIN_IN+>, <+MAX_IN+>, sizeof (<+float+>)'
@@ -565,7 +565,7 @@ ${modname}_${blockname}::~${modname}_${blockname}()
 void
 ${modname}_${blockname}::forecast (int noutput_items, gr_vector_int &ninput_items_required)
 {
-/* <+forecast+> e.g. ninput_items_required[0] = noutput_items */
+	/* <+forecast+> e.g. ninput_items_required[0] = noutput_items */
 }
 
 int
