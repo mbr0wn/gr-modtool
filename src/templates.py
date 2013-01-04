@@ -585,7 +585,7 @@ ${modname}_${blockname}::general_work (int noutput_items,
 	// Tell runtime system how many output items we produced.
 	return noutput_items;
 }
-#else if $blocktype == 'hier'
+#else if $blocktype == 'hier' or $blocktype == 'noblock'
 #pass
 #else
 int
@@ -640,13 +640,13 @@ class ${modname.upper()}_API ${modname}_${blockname} : public $grblocktype
  private:
 	friend ${modname.upper()}_API ${modname}_${blockname}_sptr ${modname}_make_${blockname} (${strip_default_values($arglist)});
 
-  ${modname}_${blockname}(${strip_default_values($arglist)});
+	${modname}_${blockname}(${strip_default_values($arglist)});
 
  public:
   ~${modname}_${blockname}();
 
 #if $blocktype == 'general'
-void forecast (int noutput_items, gr_vector_int &ninput_items_required);
+	void forecast (int noutput_items, gr_vector_int &ninput_items_required);
 
 	// Where all the action really happens
 	int general_work (int noutput_items,
