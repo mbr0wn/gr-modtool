@@ -51,9 +51,9 @@ class GRCXMLGenerator(object):
             param_tag = ET.SubElement(root, 'param')
             ET.SubElement(param_tag, 'name').text = param['key'].capitalize()
             ET.SubElement(param_tag, 'key').text = param['key']
-            ET.SubElement(param_tag, 'type').text = param['type']
             if len(param['default']):
                 ET.SubElement(param_tag, 'value').text = param['default']
+            ET.SubElement(param_tag, 'type').text = param['type']
         for inout in sorted(iosig.keys()):
             if iosig[inout]['max_ports'] == '0':
                 continue

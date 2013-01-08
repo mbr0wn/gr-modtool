@@ -74,32 +74,132 @@ class ParserCCBlock(object):
             print "Error: Can't parse output signature."
         return iosig
 
+
     def read_params(self):
         """ Read the parameters required to initialize the block """
+        def _scan_param_list(start_idx):
+            """ Go through a parameter list and return a tuple each:
+                (type, name, default_value). Python's re just doesn't cut
+                it for C++ code :( """
+            i = start_idx
+            c = self.code_h
+            if c[i] != '(':
+                raise ValueError
+            i += 1
+
+            param_list = []
+            read_state = 'type'
+            in_string = False
+            parens_count = 0 # Counts ()
+            brackets_count = 0 # Counts <>
+            end_of_list = False
+            this_type = ''
+            this_name = ''
+            this_defv = ''
+            WHITESPACE = ' \t\n\r\f\v'
+            while not end_of_list:
+                # Keep track of (), stop when reaching final closing parens
+                if not in_string:
+                    if c[i] == ')':
+                        if parens_count == 0:
+                            if read_state == 'type':
+                                raise ValueError(
+                                        'Found closing parentheses before finishing last argument (this is how far I got: %s)'
+                                        % str(param_list)
+                                )
+                            param_list.append((this_type, this_name, this_defv))
+                            end_of_list = True
+                            break
+                        else:
+                            parens_count -= 1
+                    elif c[i] == '(':
+                        parens_count += 1
+                # Parameter type (int, const std::string, std::vector<gr_complex>, unsigned long ...)
+                if read_state == 'type':
+                    if c[i] == '<':
+                        brackets_count += 1
+                    if c[i] == '>':
+                        brackets_count -= 1
+                    if c[i] == '&':
+                        i += 1
+                        continue
+                    if c[i] in WHITESPACE and brackets_count == 0:
+                        while c[i] in WHITESPACE:
+                            i += 1
+                            continue
+                        if this_type == 'const' or this_type == '': # Ignore this
+                            this_type = ''
+                        elif this_type == 'unsigned': # Continue
+                            this_type += ' '
+                            continue
+                        else:
+                            read_state = 'name'
+                        continue
+                    this_type += c[i]
+                    i += 1
+                    continue
+                # Parameter name
+                if read_state == 'name':
+                    if c[i] == '&' or c[i] in WHITESPACE:
+                        i += 1
+                    elif c[i] == '=':
+                        if parens_count != 0:
+                            raise ValueError(
+                                    'While parsing argument %d (%s): name finished but no closing parentheses.'
+                                    % (len(param_list)+1, this_type + ' ' + this_name)
+                            )
+                        read_state = 'defv'
+                        i += 1
+                    elif c[i] == ',':
+                        if parens_count:
+                            raise ValueError(
+                                    'While parsing argument %d (%s): name finished but no closing parentheses.'
+                                    % (len(param_list)+1, this_type + ' ' + this_name)
+                            )
+                        read_state = 'defv'
+                    else:
+                        this_name += c[i]
+                        i += 1
+                    continue
+                # Default value
+                if read_state == 'defv':
+                    if in_string:
+                        if c[i] == '"' and c[i-1] != '\\':
+                            in_string = False
+                        else:
+                            this_defv += c[i]
+                    elif c[i] == ',':
+                        if parens_count:
+                            raise ValueError(
+                                    'While parsing argument %d (%s): default value finished but no closing parentheses.'
+                                    % (len(param_list)+1, this_type + ' ' + this_name)
+                            )
+                        read_state = 'type'
+                        param_list.append((this_type, this_name, this_defv))
+                        this_type = ''
+                        this_name = ''
+                        this_defv = ''
+                    else:
+                        this_defv += c[i]
+                    i += 1
+                    continue
+            return param_list
+        # Go, go, go!
         if self.version == '37':
-            make_regex = 'static\s+sptr\s+make\s*\((?P<plist>(\([^\)]\)|[^)])*)\)'
+            make_regex = 'static\s+sptr\s+make\s*'
         else:
-            make_regex = '(?<=_API)\s+\w+_sptr\s+\w+_make_\w+\s*\((?P<plist>(\([^\)]\)|[^)])*)\)'
+            make_regex = '(?<=_API)\s+\w+_sptr\s+\w+_make_\w+\s*'
         make_match = re.compile(make_regex, re.MULTILINE).search(self.code_h)
-        # Go through params
-        params = []
         try:
-            param_str = make_match.group('plist').strip()
-            if len(param_str) == 0:
-                return params
-            for param in param_str.split(','):
-                p_split = param.strip().split('=')
-                if len(p_split) == 2:
-                    default_v = p_split[1].strip()
-                else:
-                    default_v = ''
-                (p_type, p_name) = [x for x in p_split[0].strip().split() if x != '']
-                params.append({'key': p_name,
-                               'type': self.type_trans(p_type, default_v),
-                               'default': default_v,
-                               'in_constructor': True})
-        except ValueError:
-            print "Error: Can't parse this: ", make_match.group(0)
-            sys.exit(1)
+            params_list = _scan_param_list(make_match.end(0))
+        except ValueError as ve:
+            print "Can't parse the argument list: ", ve.args[0]
+            sys.exit(0)
+        params = []
+        for plist in params_list:
+            params.append({'type': self.type_trans(plist[0], plist[2]),
+                           'key': plist[1],
+                           'default': plist[2],
+                           'in_constructor': True})
         return params
 

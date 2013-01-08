@@ -106,21 +106,27 @@ class ModToolMakeXML(ModTool):
                 ed.append_value('install', fname_xml, 'DESTINATION[^()]+')
                 ed.write()
 
-
     def _parse_cc_h(self, fname_cc):
         """ Go through a .cc and .h-file defining a block and return info """
         def _type_translate(p_type, default_v=None):
             """ Translates a type from C++ to GRC """
-            translate_dict = {'float': 'real',
+            translate_dict = {'float': 'float',
                               'double': 'real',
+                              'int': 'int',
                               'gr_complex': 'complex',
                               'char': 'byte',
-                              'unsigned char': 'byte'}
-            if default_v is not None and default_v[0:2] == '0x' and p_type == 'int':
+                              'unsigned char': 'byte',
+                              'std::string': 'string',
+                              'std::vector<int>': 'int_vector',
+                              'std::vector<float>': 'real_vector',
+                              'std::vector<gr_complex>': 'complex_vector',
+                              }
+            if p_type in ('int',) and default_v[:2].lower() == '0x':
                 return 'hex'
-            if p_type in translate_dict.keys():
+            try:
                 return translate_dict[p_type]
-            return p_type
+            except KeyError:
+                return 'raw'
         def _get_blockdata(fname_cc):
             """ Return the block name and the header file name from the .cc file name """
             blockname = os.path.splitext(os.path.basename(fname_cc.replace('_impl.', '.')))[0]
@@ -130,7 +136,6 @@ class ModToolMakeXML(ModTool):
         # Go, go, go
         print "Making GRC bindings for %s..." % fname_cc
         (blockname, fname_h) = _get_blockdata(fname_cc)
-        print blockname
         try:
             parser = ParserCCBlock(fname_cc,
                                    os.path.join(self._info['includedir'], fname_h),
