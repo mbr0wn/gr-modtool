@@ -13,12 +13,13 @@ class GRCXMLGenerator(object):
     def __init__(self, modname=None, blockname=None, doc=None, params=None, iosig=None):
         """docstring for __init__"""
         params_list = ['$'+s['key'] for s in params if s['in_constructor']]
-        self._header = {'name': blockname.capitalize(),
-                        'key': '%s_%s' % (modname, blockname),
-                        'category': modname.upper(),
-                        'import': 'import %s' % modname,
-                        'make': '%s.%s(%s)' % (modname, blockname, ', '.join(params_list))
-                       }
+        # Can't make a dict 'cause order matters
+        self._header = (('name', blockname.replace('_', ' ').capitalize()),
+                        ('key', '%s_%s' % (modname, blockname)),
+                        ('category', modname.upper()),
+                        ('import', 'import %s' % modname),
+                        ('make', '%s.%s(%s)' % (modname, blockname, ', '.join(params_list)))
+                       )
         self.params = params
         self.iosig = iosig
         self.doc = doc
@@ -44,9 +45,9 @@ class GRCXMLGenerator(object):
         """ Create the actual tag tree """
         root = ET.Element("block")
         iosig = self.iosig
-        for tag in self._header.keys():
+        for tag, value in self._header:
             this_tag = ET.SubElement(root, tag)
-            this_tag.text = self._header[tag]
+            this_tag.text = value
         for param in self.params:
             param_tag = ET.SubElement(root, 'param')
             ET.SubElement(param_tag, 'name').text = param['key'].capitalize()
