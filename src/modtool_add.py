@@ -156,17 +156,20 @@ class ModToolAdd(ModTool):
             self._write_tpl('qa_cpp', 'lib', fname_qa_cc)
             self._write_tpl('qa_h',   'lib', fname_qa_h)
             if not self.options.skip_cmakefiles:
-                append_re_line_sequence(self._file['cmlib'],
-                                        '\$\{CMAKE_CURRENT_SOURCE_DIR\}/qa_%s.cc.*\n' % self._info['modname'],
-                                        '  ${CMAKE_CURRENT_SOURCE_DIR}/qa_%s.cc' % self._info['blockname'])
-                append_re_line_sequence('lib/qa_%s.cc' % self._info['modname'],
-                                        '#include.*\n',
-                                        '#include "%s"' % fname_qa_h)
-                append_re_line_sequence('lib/qa_%s.cc' % self._info['modname'],
-                                        '(addTest.*suite.*\n|new CppUnit.*TestSuite.*\n)',
-                                        '\ts->addTest(gr::%s::qa_%s::suite());' % (self._info['modname'],
-                                                                                   self._info['blockname'])
-                                        )
+                try:
+                    append_re_line_sequence(self._file['cmlib'],
+                                            '\$\{CMAKE_CURRENT_SOURCE_DIR\}/qa_%s.cc.*\n' % self._info['modname'],
+                                            '  ${CMAKE_CURRENT_SOURCE_DIR}/qa_%s.cc' % self._info['blockname'])
+                    append_re_line_sequence(self._file['qalib'],
+                                            '#include.*\n',
+                                            '#include "%s"' % fname_qa_h)
+                    append_re_line_sequence(self._file['qalib'],
+                                            '(addTest.*suite.*\n|new CppUnit.*TestSuite.*\n)',
+                                            '  s->addTest(gr::%s::qa_%s::suite());' % (self._info['modname'],
+                                                                                       self._info['blockname'])
+                                            )
+                except IOError:
+                    print "Can't add C++ QA files."
         def _add_qa36():
             " Add C++ QA files for pre-3.7 API (not autotools) "
             fname_qa_cc = 'qa_%s.cc' % self._info['fullblockname']
