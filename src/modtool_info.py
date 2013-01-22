@@ -1,7 +1,6 @@
 """ Returns information about a module """
 
 import os
-import sys
 from optparse import OptionGroup
 
 from modtool_base import ModTool
@@ -40,9 +39,15 @@ class ModToolInfo(ModTool):
                 print '{}'
             else:
                 print "No module found."
-            sys.exit(0)
+            exit(1)
         os.chdir(mod_info['base_dir'])
         mod_info['modname'] = get_modname()
+        if mod_info['modname'] is None:
+            if self.options.python_readable:
+                print '{}'
+            else:
+                print "No module found."
+            exit(1)
         if self._info['version'] == '36' and os.path.isdir(os.path.join('include', mod_info['modname'])):
             self._info['version'] = '37'
         mod_info['version'] = self._info['version']

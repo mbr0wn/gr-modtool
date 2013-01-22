@@ -60,6 +60,9 @@ class ModTool(object):
             self._info['modname'] = options.module_name
         else:
             self._info['modname'] = get_modname()
+        if self._info['modname'] is None:
+            print "No GNU Radio module found in the given directory. Quitting."
+            sys.exit(1)
         print "GNU Radio module name identified: " + self._info['modname']
         if self._info['version'] == '36' and os.path.isdir(os.path.join('include', self._info['modname'])):
             self._info['version'] = '37'

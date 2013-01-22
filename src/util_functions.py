@@ -71,7 +71,10 @@ def get_modname():
     # OK, there's no gnuradio.project. So, we need to guess.
     cmfile = open('CMakeLists.txt', 'r').read()
     regexp = r'(project\s*\(\s*|GR_REGISTER_COMPONENT\(")gr-([a-zA-Z1-9-_]+)(\s*CXX|" ENABLE)'
-    return re.search(regexp, cmfile, flags=re.MULTILINE).group(2).strip()
+    try:
+        return re.search(regexp, cmfile, flags=re.MULTILINE).group(3).strip()
+    except AttributeError:
+        return None
 
 def get_class_dict():
     " Return a dictionary of the available commands in the form command->class "
