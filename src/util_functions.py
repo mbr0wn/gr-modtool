@@ -62,6 +62,7 @@ def strip_arg_types(string):
 
 def get_modname():
     """ Grep the current module's name from gnuradio.project or CMakeLists.txt """
+    modname_trans = {'howto-write-a-block': 'howto'}
     try:
         prfile = open('gnuradio.project', 'r').read()
         regexp = r'projectname\s*=\s*([a-zA-Z0-9-_]+)$'
@@ -70,9 +71,12 @@ def get_modname():
         pass
     # OK, there's no gnuradio.project. So, we need to guess.
     cmfile = open('CMakeLists.txt', 'r').read()
-    regexp = r'(project\s*\(\s*|GR_REGISTER_COMPONENT\(")gr-([a-zA-Z1-9-_]+)(\s*CXX|" ENABLE)'
+    regexp = r'(project\s*\(\s*|GR_REGISTER_COMPONENT\(")gr-(?P<modname>[a-zA-Z1-9-_]+)(\s*(CXX)?|" ENABLE)'
     try:
-        return re.search(regexp, cmfile, flags=re.MULTILINE).group(3).strip()
+        modname = re.search(regexp, cmfile, flags=re.MULTILINE).group('modname').strip()
+        if modname in modname_trans.keys():
+            modname = modname_trans[modname]
+        return modname
     except AttributeError:
         return None
 
