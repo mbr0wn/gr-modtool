@@ -254,10 +254,13 @@ ${str_to_python_comment($license)}
 #stop
 #end if
 
-from gnuradio import gr
+#if $blocktype in ('sync', 'sink', 'source')
+#set $parenttype = 'gr.sync_block'
+#else
+#set $parenttype = {'hier': 'gr.hier_block2', 'interpolator': 'gr.interp_block', 'decimator': 'gr.decim_block', 'general': 'gr.block'}[$blocktype]
+#end if
 #if $blocktype != 'hier'
-#set $parenttype = 'gr.block'
-import gnuradio.extras
+import numpy
 #if $blocktype == 'source'
 #set $inputsig = 'None'
 #else
@@ -269,7 +272,6 @@ import gnuradio.extras
 #set $outputsig = '[<+numpy.float+>]'
 #end if
 #else
-#set $parenttype = 'gr.hier_block2'
 #if $blocktype == 'source'
 #set $inputsig = '0, 0, 0'
 #else
@@ -281,41 +283,51 @@ import gnuradio.extras
 #set $outputsig = '<+MIN_OUT+>, <+MAX_OUT+>, gr.sizeof_<+float+>'
 #end if
 #end if
+#if $blocktype == 'interpolator'
+#set $deciminterp = ', <+interpolation+>'
+#else if $blocktype == 'decimator'
+#set $deciminterp = ', <+decimation+>'
+#set $deciminterp = ''
+#else
+#end if
+from gnuradio import gr
 
 class ${blockname}(${parenttype}):
+    """
+    docstring for block ${blockname}
+    """
     def __init__(self#if $arglist == '' then '' else ', '#$arglist):
-        """
-        docstring
-        """
+        gr.${parenttype}.__init__(self,
 #if $blocktype == 'hier'
-        gr.hier_block2.__init__(self, "$blockname",
+            "$blockname",
             gr.io_signature(${inputsig}),  # Input signature
             gr.io_signature(${outputsig})) # Output signature
 
             # Define blocks and connect them
             self.connect()
+#stop
 #else
-        gr.block.__init__(self,
-                          name="${blockname}",
-                          in_sig=${inputsig},
-                          out_sig=${outputsig})
-#if $blocktype == 'decimator'
-        self.set_relative_rate(1.0/<+decimation+>)
-#else if $blocktype == 'interpolator'
-        self.set_relative_rate(<+interpolation+>)
-#else if $blocktype == 'general'
-        self.set_auto_consume(False)
+            name="${blockname}",
+            in_sig=${inputsig},
+            out_sig=${outputsig}${deciminterp})
+#end if
 
+#if $blocktype == 'general'
     def forecast(self, noutput_items, ninput_items_required):
         #setup size of input_items[i] for work call
         for i in range(len(ninput_items_required)):
             ninput_items_required[i] = noutput_items
-#end if
+
+    def general_work(self, input_items, output_items):
+        output_items[0][:] = input_items[0]
+        consume(0, len(input_items[0])
+        \#self.consume_each(len(input_items[0]))
+        return len(output_items[0])
+#stop
+#else
+    def work(self, input_items, output_items):
 #end if
 
-#if $blocktype == 'hier'
-#stop
-#end if
     def work(self, input_items, output_items):
 #if $blocktype != 'source'
         in0 = input_items[0]
@@ -323,8 +335,8 @@ class ${blockname}(${parenttype}):
 #if $blocktype != 'sink'
         out = output_items[0]
 #end if
-#if $blocktype in ('sync', 'decimator', 'interpolator')
         # <+signal processing here+>
+#if $blocktype in ('sync', 'decimator', 'interpolator')
         out[:] = in0
         return len(output_items[0])
 #else if $blocktype == 'sink'
@@ -332,15 +344,6 @@ class ${blockname}(${parenttype}):
 #else if $blocktype == 'source'
         out[:] = whatever
         return len(output_items[0])
-#else if $blocktype == 'general'
-        # <+signal processing here+>
-        out[:] = in0
-
-        self.consume(0, len(in0)) //consume port 0 input
-        \#self.consume_each(len(out)) //or shortcut to consume on all inputs
-
-        # return produced
-        return len(out)
 #end if
 
 '''
