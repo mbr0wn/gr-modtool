@@ -88,6 +88,7 @@ def strip_arg_types(string):
 
 def get_modname():
     """ Grep the current module's name from gnuradio.project or CMakeLists.txt """
+    modname_trans = {'howto-write-a-block': 'howto'}
     try:
         prfile = open('gnuradio.project', 'r').read()
         regexp = r'projectname\s*=\s*([a-zA-Z0-9-_]+)$'
@@ -96,8 +97,14 @@ def get_modname():
         pass
     # OK, there's no gnuradio.project. So, we need to guess.
     cmfile = open('CMakeLists.txt', 'r').read()
-    regexp = r'(project\s*\(\s*|GR_REGISTER_COMPONENT\(")gr-([a-zA-Z1-9-_]+)(\s*CXX|" ENABLE)'
-    return re.search(regexp, cmfile, flags=re.MULTILINE).group(2).strip()
+    regexp = r'(project\s*\(\s*|GR_REGISTER_COMPONENT\(")gr-(?P<modname>[a-zA-Z1-9-_]+)(\s*(CXX)?|" ENABLE)'
+    try:
+        modname = re.search(regexp, cmfile, flags=re.MULTILINE).group('modname').strip()
+        if modname in modname_trans.keys():
+            modname = modname_trans[modname]
+        return modname
+    except AttributeError:
+        return None
 
 def get_class_dict():
     " Return a dictionary of the available commands in the form command->class "
@@ -135,6 +142,15 @@ def xml_indent(elem, level=0):
     else:
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
+
+def ask_yes_no(question, default):
+    """ Asks a binary question. Returns True for yes, False for no.
+    default is given as a boolean. """
+    question += {True: ' [Y/n] ', False: ' [y/N] '}[default]
+    if raw_input(question).lower() != {True: 'n', False: 'y'}[default]:
+        return default
+    else:
+        return not default
 ### Templates ################################################################
 Templates = {}
 Templates36 = {}
@@ -180,6 +196,8 @@ namespace gr {
       ~${blockname}_impl();
 
 #if $blocktype == 'general'
+      void forecast (int noutput_items, gr_vector_int &ninput_items_required);
+
       // Where all the action really happens
       int general_work(int noutput_items,
 		       gr_vector_int &ninput_items,
@@ -241,12 +259,12 @@ namespace gr {
 #else
 #set $decimation = ''
 #end if
-#if $blocktype == 'sink'
+#if $blocktype == 'source'
 #set $inputsig = '0, 0, 0'
 #else
 #set $inputsig = '<+MIN_IN+>, <+MAX_IN+>, sizeof (<+float+>)'
 #end if
-#if $blocktype == 'source'
+#if $blocktype == 'sink'
 #set $outputsig = '0, 0, 0'
 #else
 #set $outputsig = '<+MIN_IN+>, <+MAX_IN+>, sizeof (<+float+>)'
@@ -276,6 +294,12 @@ namespace gr {
     }
 
 #if $blocktype == 'general'
+    void
+    ${blockname}_impl::forecast (int noutput_items, gr_vector_int &ninput_items_required)
+    {
+        /* <+forecast+> e.g. ninput_items_required[0] = noutput_items */
+    }
+
     int
     ${blockname}_impl::general_work (int noutput_items,
                        gr_vector_int &ninput_items,
@@ -293,7 +317,6 @@ namespace gr {
         // Tell runtime system how many output items we produced.
         return noutput_items;
     }
-
 #else if $blocktype == 'hier'
 #silent pass
 #else
@@ -345,7 +368,7 @@ namespace gr {
 #else
     /*!
      * \\brief <+description of block+>
-     * \ingroup block
+     * \ingroup ${modname}
      *
      */
     class ${modname.upper()}_API ${blockname} : virtual public $grblocktype
@@ -380,10 +403,13 @@ ${str_to_python_comment($license)}
 #stop
 #end if
 
-from gnuradio import gr
+#if $blocktype in ('sync', 'sink', 'source')
+#set $parenttype = 'gr.sync_block'
+#else
+#set $parenttype = {'hier': 'gr.hier_block2', 'interpolator': 'gr.interp_block', 'decimator': 'gr.decim_block', 'general': 'gr.block'}[$blocktype]
+#end if
 #if $blocktype != 'hier'
-#set $parenttype = 'gr.block'
-import gnuradio.extras
+import numpy
 #if $blocktype == 'source'
 #set $inputsig = 'None'
 #else
@@ -395,7 +421,6 @@ import gnuradio.extras
 #set $outputsig = '[<+numpy.float+>]'
 #end if
 #else
-#set $parenttype = 'gr.hier_block2'
 #if $blocktype == 'source'
 #set $inputsig = '0, 0, 0'
 #else
@@ -407,41 +432,51 @@ import gnuradio.extras
 #set $outputsig = '<+MIN_OUT+>, <+MAX_OUT+>, gr.sizeof_<+float+>'
 #end if
 #end if
+#if $blocktype == 'interpolator'
+#set $deciminterp = ', <+interpolation+>'
+#else if $blocktype == 'decimator'
+#set $deciminterp = ', <+decimation+>'
+#set $deciminterp = ''
+#else
+#end if
+from gnuradio import gr
 
 class ${blockname}(${parenttype}):
+    """
+    docstring for block ${blockname}
+    """
     def __init__(self#if $arglist == '' then '' else ', '#$arglist):
-        """
-        docstring
-        """
+        gr.${parenttype}.__init__(self,
 #if $blocktype == 'hier'
-        gr.hier_block2.__init__(self, "$blockname",
+            "$blockname",
             gr.io_signature(${inputsig}),  # Input signature
             gr.io_signature(${outputsig})) # Output signature
 
             # Define blocks and connect them
             self.connect()
+#stop
 #else
-        gr.block.__init__(self,
-                          name="${blockname}",
-                          in_sig=${inputsig},
-                          out_sig=${outputsig})
-#if $blocktype == 'decimator'
-        self.set_relative_rate(1.0/<+decimation+>)
-#else if $blocktype == 'interpolator'
-        self.set_relative_rate(<+interpolation+>)
-#else if $blocktype == 'general'
-        self.set_auto_consume(False)
+            name="${blockname}",
+            in_sig=${inputsig},
+            out_sig=${outputsig}${deciminterp})
+#end if
 
+#if $blocktype == 'general'
     def forecast(self, noutput_items, ninput_items_required):
         #setup size of input_items[i] for work call
         for i in range(len(ninput_items_required)):
             ninput_items_required[i] = noutput_items
-#end if
+
+    def general_work(self, input_items, output_items):
+        output_items[0][:] = input_items[0]
+        consume(0, len(input_items[0])
+        \#self.consume_each(len(input_items[0]))
+        return len(output_items[0])
+#stop
+#else
+    def work(self, input_items, output_items):
 #end if
 
-#if $blocktype == 'hier'
-#stop
-#end if
     def work(self, input_items, output_items):
 #if $blocktype != 'source'
         in0 = input_items[0]
@@ -449,8 +484,8 @@ class ${blockname}(${parenttype}):
 #if $blocktype != 'sink'
         out = output_items[0]
 #end if
-#if $blocktype in ('sync', 'decimator', 'interpolator')
         # <+signal processing here+>
+#if $blocktype in ('sync', 'decimator', 'interpolator')
         out[:] = in0
         return len(output_items[0])
 #else if $blocktype == 'sink'
@@ -458,15 +493,6 @@ class ${blockname}(${parenttype}):
 #else if $blocktype == 'source'
         out[:] = whatever
         return len(output_items[0])
-#else if $blocktype == 'general'
-        # <+signal processing here+>
-        out[:] = in0
-
-        self.consume(0, len(in0)) //consume port 0 input
-        \#self.consume_each(len(out)) //or shortcut to consume on all inputs
-
-        # return produced
-        return len(out)
 #end if
 
 '''
@@ -621,17 +647,17 @@ ${str_to_fancyc_comment($license)}
 \#include "config.h"
 \#endif
 
-#if $blocktype != 'noblock
+#if $blocktype != 'noblock'
 \#include <gr_io_signature.h>
 #end if
 \#include "${modname}_${blockname}.h"
 
-#if $blocktype != 'noblock
-$blockname::${blockname}(${strip_default_values($arglist)})
+#if $blocktype == 'noblock'
+${modname}_${blockname}::${modname}_${blockname}(${strip_default_values($arglist)})
 {
 }
 
-$blockname::~${blockname}()
+${modname}_${blockname}::~${modname}_${blockname}()
 {
 }
 #else
@@ -663,13 +689,13 @@ ${modname}_make_${blockname} (${strip_default_values($arglist)})
  * The private constructor
  */
 ${modname}_${blockname}::${modname}_${blockname} (${strip_default_values($arglist)})
-  : gr_sync_block ("${blockname}",
+  : ${grblocktype} ("${blockname}",
 		   gr_make_io_signature($inputsig),
 		   gr_make_io_signature($outputsig)$decimation)
 {
 #if $blocktype == 'hier'
 		connect(self(), 0, d_firstblock, 0);
-		// connect other blocks
+		// <+connect other blocks+>
 		connect(d_lastblock, 0, self(), 0);
 #else
 	// Put in <+constructor stuff+> here
@@ -688,6 +714,12 @@ ${modname}_${blockname}::~${modname}_${blockname}()
 
 
 #if $blocktype == 'general'
+void
+${modname}_${blockname}::forecast (int noutput_items, gr_vector_int &ninput_items_required)
+{
+	/* <+forecast+> e.g. ninput_items_required[0] = noutput_items */
+}
+
 int
 ${modname}_${blockname}::general_work (int noutput_items,
 				   gr_vector_int &ninput_items,
@@ -705,7 +737,7 @@ ${modname}_${blockname}::general_work (int noutput_items,
 	// Tell runtime system how many output items we produced.
 	return noutput_items;
 }
-#else if $blocktype == 'hier'
+#else if $blocktype == 'hier' or $blocktype == 'noblock'
 #pass
 #else
 int
@@ -752,7 +784,7 @@ ${modname.upper()}_API ${modname}_${blockname}_sptr ${modname}_make_${blockname}
 
 /*!
  * \\brief <+description+>
- * \ingroup block
+ * \ingroup ${modname}
  *
  */
 class ${modname.upper()}_API ${modname}_${blockname} : public $grblocktype
@@ -760,12 +792,14 @@ class ${modname.upper()}_API ${modname}_${blockname} : public $grblocktype
  private:
 	friend ${modname.upper()}_API ${modname}_${blockname}_sptr ${modname}_make_${blockname} (${strip_default_values($arglist)});
 
-  ${modname}_${blockname}(${strip_default_values($arglist)});
+	${modname}_${blockname}(${strip_default_values($arglist)});
 
  public:
   ~${modname}_${blockname}();
 
 #if $blocktype == 'general'
+	void forecast (int noutput_items, gr_vector_int &ninput_items_required);
+
 	// Where all the action really happens
 	int general_work (int noutput_items,
 	    gr_vector_int &ninput_items,
@@ -913,12 +947,19 @@ class CMakeFileEditor(object):
         elif nsubs > 1:
             print "Warning: Replaced %s %d times (instead of once). Check the CMakeFile.txt manually." % (fname, nsubs)
 
-
     def comment_out_lines(self, pattern, comment_str='#'):
         """ Comments out all lines that match with pattern """
         for line in self.cfile.splitlines():
             if re.search(pattern, line):
                 self.cfile = self.cfile.replace(line, comment_str+line)
+
+    def check_for_glob(self, globstr):
+        """ Returns true if a glob as in globstr is found in the cmake file """
+        glob_re = r'GLOB\s[a-z_]+\s"%s"' % globstr.replace('*', '\*')
+        if re.search(glob_re, self.cfile, flags=re.MULTILINE|re.IGNORECASE) is not None: 
+            return True
+        else:
+            return False
 
 ### ModTool base class #######################################################
 class ModTool(object):
@@ -972,6 +1013,9 @@ class ModTool(object):
             self._info['modname'] = options.module_name
         else:
             self._info['modname'] = get_modname()
+        if self._info['modname'] is None:
+            print "No GNU Radio module found in the given directory. Quitting."
+            sys.exit(1)
         print "GNU Radio module name identified: " + self._info['modname']
         if self._info['version'] == '36' and os.path.isdir(os.path.join('include', self._info['modname'])):
             self._info['version'] = '37'
@@ -1061,6 +1105,8 @@ class ModToolInfo(ModTool):
         ogroup = OptionGroup(parser, "Info options")
         ogroup.add_option("--python-readable", action="store_true", default=None,
                 help="Return the output in a format that's easier to read for Python scripts.")
+        ogroup.add_option("--suggested-dirs", default=None, type="string",
+                help="Suggest typical include dirs if nothing better can be detected.")
         parser.add_option_group(ogroup)
         return parser
 
@@ -1071,17 +1117,21 @@ class ModToolInfo(ModTool):
     def run(self):
         """ Go, go, go! """
         mod_info = {}
-        base_dir = self._get_base_dir(self.options.directory)
-        # So we have to do that by hand
-        if base_dir is None:
+        mod_info['base_dir'] = self._get_base_dir(self.options.directory)
+        if mod_info['base_dir'] is None:
             if self.options.python_readable:
                 print '{}'
             else:
                 print "No module found."
-            sys.exit(0)
-        mod_info['base_dir'] = base_dir
+            exit(1)
         os.chdir(mod_info['base_dir'])
         mod_info['modname'] = get_modname()
+        if mod_info['modname'] is None:
+            if self.options.python_readable:
+                print '{}'
+            else:
+                print "No module found."
+            exit(1)
         if self._info['version'] == '36' and os.path.isdir(os.path.join('include', mod_info['modname'])):
             self._info['version'] = '37'
         mod_info['version'] = self._info['version']
@@ -1120,29 +1170,36 @@ class ModToolInfo(ModTool):
         for a file called CMakeCache.txt, which is created when running cmake.
         If that hasn't happened, the build dir cannot be detected, unless it's
         called 'build', which is then assumed to be the build dir. """
-        has_build_dir = os.path.isdir(os.path.join(mod_info['base_dir'], 'build'))
-        if (has_build_dir and os.path.isfile(os.path.join(mod_info['base_dir'], 'CMakeCache.txt'))):
-            return os.path.join(mod_info['base_dir'], 'build')
+        base_build_dir = mod_info['base_dir']
+        if 'is_component' in mod_info.keys():
+            (base_build_dir, rest_dir) = os.path.split(base_build_dir)
+        has_build_dir = os.path.isdir(os.path.join(base_build_dir , 'build'))
+        if (has_build_dir and os.path.isfile(os.path.join(base_build_dir, 'CMakeCache.txt'))):
+            return os.path.join(base_build_dir, 'build')
         else:
-            for (dirpath, dirnames, filenames) in os.walk(mod_info['base_dir']):
+            for (dirpath, dirnames, filenames) in os.walk(base_build_dir):
                 if 'CMakeCache.txt' in filenames:
                     return dirpath
         if has_build_dir:
-            return os.path.join(mod_info['base_dir'], 'build')
+            return os.path.join(base_build_dir, 'build')
         return None
 
     def _get_include_dirs(self, mod_info):
         """ Figure out include dirs for the make process. """
         inc_dirs = []
+        path_or_internal = {True: 'INTERNAL',
+                            False: 'PATH'}['is_component' in mod_info.keys()]
         try:
             cmakecache_fid = open(os.path.join(mod_info['build_dir'], 'CMakeCache.txt'))
             for line in cmakecache_fid:
-                if line.find('GNURADIO_CORE_INCLUDE_DIRS:PATH') != -1:
-                    inc_dirs += line.replace('GNURADIO_CORE_INCLUDE_DIRS:PATH=', '').strip().split(';')
-                if line.find('GRUEL_INCLUDE_DIRS:PATH') != -1:
-                    inc_dirs += line.replace('GRUEL_INCLUDE_DIRS:PATH=', '').strip().split(';')
+                if line.find('GNURADIO_CORE_INCLUDE_DIRS:%s' % path_or_internal) != -1:
+                    inc_dirs += line.replace('GNURADIO_CORE_INCLUDE_DIRS:%s=' % path_or_internal, '').strip().split(';')
+                if line.find('GRUEL_INCLUDE_DIRS:%s' % path_or_internal) != -1:
+                    inc_dirs += line.replace('GRUEL_INCLUDE_DIRS:%s=' % path_or_internal, '').strip().split(';')
         except IOError:
             pass
+        if len(inc_dirs) == 0 and self.options.suggested_dirs is not None:
+            inc_dirs = [os.path.normpath(path) for path in self.options.suggested_dirs.split(':') if os.path.isdir(path)]
         return inc_dirs
 
     def _pretty_print(self, mod_info):
@@ -1234,11 +1291,11 @@ class ModToolAdd(ModTool):
         if not (self._info['blocktype'] in ('noblock') or self._skip_subdirs['python']):
             self._add_py_qa = options.add_python_qa
             if self._add_py_qa is None:
-                self._add_py_qa = (raw_input('Add Python QA code? [Y/n] ').lower() != 'n')
+                self._add_py_qa = ask_yes_no('Add Python QA code?', True)
         if self._info['lang'] == 'cpp':
             self._add_cc_qa = options.add_cpp_qa
             if self._add_cc_qa is None:
-                self._add_cc_qa = (raw_input('Add C++ QA code? [Y/n] ').lower() != 'n')
+                self._add_cc_qa = ask_yes_no('Add C++ QA code?', not self._add_py_qa)
         if self._info['version'] == 'autofoo' and not self.options.skip_cmakefiles:
             print "Warning: Autotools modules are not supported. ",
             print "Files will be created, but Makefiles will not be edited."
@@ -1306,17 +1363,20 @@ class ModToolAdd(ModTool):
             self._write_tpl('qa_cpp', 'lib', fname_qa_cc)
             self._write_tpl('qa_h',   'lib', fname_qa_h)
             if not self.options.skip_cmakefiles:
-                append_re_line_sequence(self._file['cmlib'],
-                                        '\$\{CMAKE_CURRENT_SOURCE_DIR\}/qa_%s.cc.*\n' % self._info['modname'],
-                                        '  ${CMAKE_CURRENT_SOURCE_DIR}/qa_%s.cc' % self._info['blockname'])
-                append_re_line_sequence('lib/qa_%s.cc' % self._info['modname'],
-                                        '#include.*\n',
-                                        '#include "%s"' % fname_qa_h)
-                append_re_line_sequence('lib/qa_%s.cc' % self._info['modname'],
-                                        '(addTest.*suite.*\n|new CppUnit.*TestSuite.*\n)',
-                                        '\ts->addTest(gr::%s::qa_%s::suite());' % (self._info['modname'],
-                                                                                   self._info['blockname'])
-                                        )
+                try:
+                    append_re_line_sequence(self._file['cmlib'],
+                                            '\$\{CMAKE_CURRENT_SOURCE_DIR\}/qa_%s.cc.*\n' % self._info['modname'],
+                                            '  ${CMAKE_CURRENT_SOURCE_DIR}/qa_%s.cc' % self._info['blockname'])
+                    append_re_line_sequence(self._file['qalib'],
+                                            '#include.*\n',
+                                            '#include "%s"' % fname_qa_h)
+                    append_re_line_sequence(self._file['qalib'],
+                                            '(addTest.*suite.*\n|new CppUnit.*TestSuite.*\n)',
+                                            '  s->addTest(gr::%s::qa_%s::suite());' % (self._info['modname'],
+                                                                                       self._info['blockname'])
+                                            )
+                except IOError:
+                    print "Can't add C++ QA files."
         def _add_qa36():
             " Add C++ QA files for pre-3.7 API (not autotools) "
             fname_qa_cc = 'qa_%s.cc' % self._info['fullblockname']
@@ -1401,7 +1461,7 @@ class ModToolAdd(ModTool):
         fname_py_qa = 'qa_' + self._info['blockname'] + '.py'
         self._write_tpl('qa_python', 'python', fname_py_qa)
         os.chmod(os.path.join('python', fname_py_qa), 0755)
-        if self.options.skip_cmakefiles:
+        if self.options.skip_cmakefiles or CMakeFileEditor(self._file['cmpython']).check_for_glob('qa_*.py'):
             return
         print "Editing python/CMakeLists.txt..."
         open(self._file['cmpython'], 'a').write(
@@ -1434,10 +1494,10 @@ class ModToolAdd(ModTool):
         """
         fname_grc = self._info['fullblockname'] + '.xml'
         self._write_tpl('grc_xml', 'grc', fname_grc)
-        if self.options.skip_cmakefiles:
+        ed = CMakeFileEditor(self._file['cmgrc'], '\n    ')
+        if self.options.skip_cmakefiles or ed.check_for_glob('*.xml'):
             return
         print "Editing grc/CMakeLists.txt..."
-        ed = CMakeFileEditor(self._file['cmgrc'], '\n    ')
         ed.append_value('install', fname_grc, 'DESTINATION[^()]+')
         ed.write()
 
@@ -2900,33 +2960,133 @@ class ParserCCBlock(object):
             print "Error: Can't parse output signature."
         return iosig
 
+
     def read_params(self):
         """ Read the parameters required to initialize the block """
+        def _scan_param_list(start_idx):
+            """ Go through a parameter list and return a tuple each:
+                (type, name, default_value). Python's re just doesn't cut
+                it for C++ code :( """
+            i = start_idx
+            c = self.code_h
+            if c[i] != '(':
+                raise ValueError
+            i += 1
+
+            param_list = []
+            read_state = 'type'
+            in_string = False
+            parens_count = 0 # Counts ()
+            brackets_count = 0 # Counts <>
+            end_of_list = False
+            this_type = ''
+            this_name = ''
+            this_defv = ''
+            WHITESPACE = ' \t\n\r\f\v'
+            while not end_of_list:
+                # Keep track of (), stop when reaching final closing parens
+                if not in_string:
+                    if c[i] == ')':
+                        if parens_count == 0:
+                            if read_state == 'type':
+                                raise ValueError(
+                                        'Found closing parentheses before finishing last argument (this is how far I got: %s)'
+                                        % str(param_list)
+                                )
+                            param_list.append((this_type, this_name, this_defv))
+                            end_of_list = True
+                            break
+                        else:
+                            parens_count -= 1
+                    elif c[i] == '(':
+                        parens_count += 1
+                # Parameter type (int, const std::string, std::vector<gr_complex>, unsigned long ...)
+                if read_state == 'type':
+                    if c[i] == '<':
+                        brackets_count += 1
+                    if c[i] == '>':
+                        brackets_count -= 1
+                    if c[i] == '&':
+                        i += 1
+                        continue
+                    if c[i] in WHITESPACE and brackets_count == 0:
+                        while c[i] in WHITESPACE:
+                            i += 1
+                            continue
+                        if this_type == 'const' or this_type == '': # Ignore this
+                            this_type = ''
+                        elif this_type == 'unsigned': # Continue
+                            this_type += ' '
+                            continue
+                        else:
+                            read_state = 'name'
+                        continue
+                    this_type += c[i]
+                    i += 1
+                    continue
+                # Parameter name
+                if read_state == 'name':
+                    if c[i] == '&' or c[i] in WHITESPACE:
+                        i += 1
+                    elif c[i] == '=':
+                        if parens_count != 0:
+                            raise ValueError(
+                                    'While parsing argument %d (%s): name finished but no closing parentheses.'
+                                    % (len(param_list)+1, this_type + ' ' + this_name)
+                            )
+                        read_state = 'defv'
+                        i += 1
+                    elif c[i] == ',':
+                        if parens_count:
+                            raise ValueError(
+                                    'While parsing argument %d (%s): name finished but no closing parentheses.'
+                                    % (len(param_list)+1, this_type + ' ' + this_name)
+                            )
+                        read_state = 'defv'
+                    else:
+                        this_name += c[i]
+                        i += 1
+                    continue
+                # Default value
+                if read_state == 'defv':
+                    if in_string:
+                        if c[i] == '"' and c[i-1] != '\\':
+                            in_string = False
+                        else:
+                            this_defv += c[i]
+                    elif c[i] == ',':
+                        if parens_count:
+                            raise ValueError(
+                                    'While parsing argument %d (%s): default value finished but no closing parentheses.'
+                                    % (len(param_list)+1, this_type + ' ' + this_name)
+                            )
+                        read_state = 'type'
+                        param_list.append((this_type, this_name, this_defv))
+                        this_type = ''
+                        this_name = ''
+                        this_defv = ''
+                    else:
+                        this_defv += c[i]
+                    i += 1
+                    continue
+            return param_list
+        # Go, go, go!
         if self.version == '37':
-            make_regex = 'static\s+sptr\s+make\s*\((?P<plist>(\([^\)]\)|[^)])*)\)'
+            make_regex = 'static\s+sptr\s+make\s*'
         else:
-            make_regex = '(?<=_API)\s+\w+_sptr\s+\w+_make_\w+\s*\((?P<plist>(\([^\)]\)|[^)])*)\)'
+            make_regex = '(?<=_API)\s+\w+_sptr\s+\w+_make_\w+\s*'
         make_match = re.compile(make_regex, re.MULTILINE).search(self.code_h)
-        # Go through params
-        params = []
         try:
-            param_str = make_match.group('plist').strip()
-            if len(param_str) == 0:
-                return params
-            for param in param_str.split(','):
-                p_split = param.strip().split('=')
-                if len(p_split) == 2:
-                    default_v = p_split[1].strip()
-                else:
-                    default_v = ''
-                (p_type, p_name) = [x for x in p_split[0].strip().split() if x != '']
-                params.append({'key': p_name,
-                               'type': self.type_trans(p_type, default_v),
-                               'default': default_v,
-                               'in_constructor': True})
-        except ValueError:
-            print "Error: Can't parse this: ", make_match.group(0)
-            sys.exit(1)
+            params_list = _scan_param_list(make_match.end(0))
+        except ValueError as ve:
+            print "Can't parse the argument list: ", ve.args[0]
+            sys.exit(0)
+        params = []
+        for plist in params_list:
+            params.append({'type': self.type_trans(plist[0], plist[2]),
+                           'key': plist[1],
+                           'default': plist[2],
+                           'in_constructor': True})
         return params
 
 ### GRC XML Generator ########################################################
@@ -2941,12 +3101,13 @@ class GRCXMLGenerator(object):
     def __init__(self, modname=None, blockname=None, doc=None, params=None, iosig=None):
         """docstring for __init__"""
         params_list = ['$'+s['key'] for s in params if s['in_constructor']]
-        self._header = {'name': blockname.capitalize(),
-                        'key': '%s_%s' % (modname, blockname),
-                        'category': modname.upper(),
-                        'import': 'import %s' % modname,
-                        'make': '%s.%s(%s)' % (modname, blockname, ', '.join(params_list))
-                       }
+        # Can't make a dict 'cause order matters
+        self._header = (('name', blockname.replace('_', ' ').capitalize()),
+                        ('key', '%s_%s' % (modname, blockname)),
+                        ('category', modname.upper()),
+                        ('import', 'import %s' % modname),
+                        ('make', '%s.%s(%s)' % (modname, blockname, ', '.join(params_list)))
+                       )
         self.params = params
         self.iosig = iosig
         self.doc = doc
@@ -2972,16 +3133,16 @@ class GRCXMLGenerator(object):
         """ Create the actual tag tree """
         root = ET.Element("block")
         iosig = self.iosig
-        for tag in self._header.keys():
+        for tag, value in self._header:
             this_tag = ET.SubElement(root, tag)
-            this_tag.text = self._header[tag]
+            this_tag.text = value
         for param in self.params:
             param_tag = ET.SubElement(root, 'param')
             ET.SubElement(param_tag, 'name').text = param['key'].capitalize()
             ET.SubElement(param_tag, 'key').text = param['key']
-            ET.SubElement(param_tag, 'type').text = param['type']
             if len(param['default']):
                 ET.SubElement(param_tag, 'value').text = param['default']
+            ET.SubElement(param_tag, 'type').text = param['type']
         for inout in sorted(iosig.keys()):
             if iosig[inout]['max_ports'] == '0':
                 continue
@@ -3100,26 +3261,32 @@ class ModToolMakeXML(ModTool):
         grc_generator.save(os.path.join('grc', fname_xml))
         if not self._skip_subdirs['grc']:
             ed = CMakeFileEditor(self._file['cmgrc'])
-            if re.search(fname_xml, ed.cfile) is None:
+            if re.search(fname_xml, ed.cfile) is None and not ed.check_for_glob('*.xml'):
                 print "Adding GRC bindings to grc/CMakeLists.txt..."
                 ed.append_value('install', fname_xml, 'DESTINATION[^()]+')
                 ed.write()
-
 
     def _parse_cc_h(self, fname_cc):
         """ Go through a .cc and .h-file defining a block and return info """
         def _type_translate(p_type, default_v=None):
             """ Translates a type from C++ to GRC """
-            translate_dict = {'float': 'real',
+            translate_dict = {'float': 'float',
                               'double': 'real',
+                              'int': 'int',
                               'gr_complex': 'complex',
                               'char': 'byte',
-                              'unsigned char': 'byte'}
-            if default_v is not None and default_v[0:2] == '0x' and p_type == 'int':
+                              'unsigned char': 'byte',
+                              'std::string': 'string',
+                              'std::vector<int>': 'int_vector',
+                              'std::vector<float>': 'real_vector',
+                              'std::vector<gr_complex>': 'complex_vector',
+                              }
+            if p_type in ('int',) and default_v[:2].lower() == '0x':
                 return 'hex'
-            if p_type in translate_dict.keys():
+            try:
                 return translate_dict[p_type]
-            return p_type
+            except KeyError:
+                return 'raw'
         def _get_blockdata(fname_cc):
             """ Return the block name and the header file name from the .cc file name """
             blockname = os.path.splitext(os.path.basename(fname_cc.replace('_impl.', '.')))[0]
@@ -3129,7 +3296,6 @@ class ModToolMakeXML(ModTool):
         # Go, go, go
         print "Making GRC bindings for %s..." % fname_cc
         (blockname, fname_h) = _get_blockdata(fname_cc)
-        print blockname
         try:
             parser = ParserCCBlock(fname_cc,
                                    os.path.join(self._info['includedir'], fname_h),
