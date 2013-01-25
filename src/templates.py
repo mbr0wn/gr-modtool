@@ -287,8 +287,8 @@ import numpy
 #set $deciminterp = ', <+interpolation+>'
 #else if $blocktype == 'decimator'
 #set $deciminterp = ', <+decimation+>'
-#set $deciminterp = ''
 #else
+#set $deciminterp = ''
 #end if
 from gnuradio import gr
 
