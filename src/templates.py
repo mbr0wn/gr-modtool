@@ -1,10 +1,28 @@
+#
+# Copyright 2013 Free Software Foundation, Inc.
+#
+# This file is part of GNU Radio
+#
+# GNU Radio is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# GNU Radio is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GNU Radio; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 51 Franklin Street,
+# Boston, MA 02110-1301, USA.
+#
 ''' All the templates for skeleton files (needed by ModToolAdd) '''
 
 from datetime import datetime
 
-### Templates ################################################################
 Templates = {}
-Templates36 = {}
 
 # Default licence
 Templates['defaultlicense'] = '''
@@ -297,7 +315,7 @@ class ${blockname}(${parenttype}):
     docstring for block ${blockname}
     """
     def __init__(self#if $arglist == '' then '' else ', '#$arglist):
-        gr.${parenttype}.__init__(self,
+        ${parenttype}.__init__(self,
 #if $blocktype == 'hier'
             "$blockname",
             gr.io_signature(${inputsig}),  # Input signature
@@ -324,8 +342,6 @@ class ${blockname}(${parenttype}):
         \#self.consume_each(len(input_items[0]))
         return len(output_items[0])
 #stop
-#else
-    def work(self, input_items, output_items):
 #end if
 
     def work(self, input_items, output_items):
@@ -474,9 +490,9 @@ Templates['grc_xml'] = '''<?xml version="1.0"?>
 
 # Usage
 Templates['usage'] = '''
-gr_modtool.py <command> [options] -- Run <command> with the given options.
-gr_modtool.py help -- Show a list of commands.
-gr_modtool.py help <command> -- Shows the help for a given command. '''
+gr_modtool <command> [options] -- Run <command> with the given options.
+gr_modtool help -- Show a list of commands.
+gr_modtool help <command> -- Shows the help for a given command. '''
 
 # SWIG string
 Templates['swig_block_magic'] = """#if $version == '37'
