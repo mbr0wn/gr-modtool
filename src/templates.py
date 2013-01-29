@@ -22,8 +22,8 @@
 
 from datetime import datetime
 
+### Templates ################################################################
 Templates = {}
-
 # Default licence
 Templates['defaultlicense'] = '''
 Copyright %d <+YOU OR YOUR COMPANY+>.
