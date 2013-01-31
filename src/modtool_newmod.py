@@ -1,10 +1,14 @@
 """ Create a whole new out-of-tree module """
 
-import shutil
 import os
 import re
+import sys
+import base64
+import tarfile
 from optparse import OptionGroup
+
 from modtool_base import ModTool
+from newmod_tarfile import NEWMOD_TARFILE
 
 ### New out-of-tree-mod module ###############################################
 class ModToolNewModule(ModTool):
@@ -32,7 +36,7 @@ class ModToolNewModule(ModTool):
                 self._info['modname'] = raw_input('Name of the new module: ')
         if not re.match('[a-zA-Z0-9_]+', self._info['modname']):
             print 'Invalid module name.'
-            exit(2)
+            sys.exit(2)
         self._dir = options.directory
         if self._dir == '.':
             self._dir = './gr-%s' % self._info['modname']
@@ -43,21 +47,30 @@ class ModToolNewModule(ModTool):
             pass # This is what should happen
         else:
             print 'The given directory exists.'
-            exit(2)
+            sys.exit(2)
 
     def run(self):
         """
-        * Copy the example dir recursively
+        * Unpack the tar.bz2 to the new locations
+        * Remove the bz2
         * Open all files, rename howto and HOWTO to the module name
         * Rename files and directories that contain the word howto
         """
-        print "Creating out-of-tree module in %s..." % self._dir,
+        print "Creating directory..."
         try:
-            shutil.copytree('/home/braun/.usrlocal/share/gnuradio/modtool/gr-newmod', self._dir)
+            os.mkdir(self._dir)
             os.chdir(self._dir)
         except OSError:
             print 'Could not create directory %s. Quitting.' % self._dir
-            exit(2)
+            sys.exit(2)
+        print "Copying howto example..."
+        open('tmp.tar.bz2', 'wb').write(base64.b64decode(NEWMOD_TARFILE))
+        print "Unpacking..."
+        tar = tarfile.open('tmp.tar.bz2', mode='r:bz2')
+        tar.extractall()
+        tar.close()
+        os.unlink('tmp.tar.bz2')
+        print "Replacing occurences of 'howto' to '%s'..." % self._info['modname'],
         for root, dirs, files in os.walk('.'):
             for filename in files:
                 f = os.path.join(root, filename)
@@ -71,4 +84,5 @@ class ModToolNewModule(ModTool):
                 os.rename(root, os.path.join(os.path.dirname(root), self._info['modname']))
         print "Done."
         print "Use 'gr_modtool add' to add a new block to this currently empty module."
+
 
