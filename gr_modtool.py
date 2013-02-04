@@ -1435,6 +1435,7 @@ class ModToolAdd(ModTool):
         if self._info['version'] == '36':
             mod_block_sep = '_'
         swig_block_magic_str = get_template('swig_block_magic', **self._info)
+        open(self._file['swig'], 'a').write(swig_block_magic_str)
         include_str = '#include "%s%s%s.h"' % (
                 self._info['modname'],
                 mod_block_sep,
@@ -1446,7 +1447,6 @@ class ModToolAdd(ModTool):
             regexp = re.compile('^%\{\n', re.MULTILINE)
             oldfile = regexp.sub('%%{\n%s\n' % include_str, oldfile, count=1)
             open(self._file['swig'], 'w').write(oldfile)
-        open(self._file['swig'], 'a').write(swig_block_magic_str)
 
     def _run_python_qa(self):
         """ Do everything that needs doing in the subdir 'python' to add
@@ -2834,7 +2834,7 @@ class ModToolNewModule(ModTool):
                 self._info['modname'] = raw_input('Name of the new module: ')
         if not re.match('[a-zA-Z0-9_]+', self._info['modname']):
             print 'Invalid module name.'
-            exit(2)
+            sys.exit(2)
         self._dir = options.directory
         if self._dir == '.':
             self._dir = './gr-%s' % self._info['modname']
@@ -2845,21 +2845,30 @@ class ModToolNewModule(ModTool):
             pass # This is what should happen
         else:
             print 'The given directory exists.'
-            exit(2)
+            sys.exit(2)
 
     def run(self):
         """
-        * Copy the example dir recursively
+        * Unpack the tar.bz2 to the new locations
+        * Remove the bz2
         * Open all files, rename howto and HOWTO to the module name
         * Rename files and directories that contain the word howto
         """
-        print "Creating out-of-tree module in %s..." % self._dir,
+        print "Creating directory..."
         try:
-            shutil.copytree('/home/braun/.usrlocal/share/gnuradio/modtool/gr-newmod', self._dir)
+            os.mkdir(self._dir)
             os.chdir(self._dir)
         except OSError:
             print 'Could not create directory %s. Quitting.' % self._dir
-            exit(2)
+            sys.exit(2)
+        print "Copying howto example..."
+        open('tmp.tar.bz2', 'wb').write(base64.b64decode(NEWMOD_TARFILE))
+        print "Unpacking..."
+        tar = tarfile.open('tmp.tar.bz2', mode='r:bz2')
+        tar.extractall()
+        tar.close()
+        os.unlink('tmp.tar.bz2')
+        print "Replacing occurences of 'howto' to '%s'..." % self._info['modname'],
         for root, dirs, files in os.walk('.'):
             for filename in files:
                 f = os.path.join(root, filename)
@@ -2873,6 +2882,7 @@ class ModToolNewModule(ModTool):
                 os.rename(root, os.path.join(os.path.dirname(root), self._info['modname']))
         print "Done."
         print "Use 'gr_modtool add' to add a new block to this currently empty module."
+
 
 ### Parser for CC blocks ####################################################
 def dummy_translator(the_type, default_v=None):
