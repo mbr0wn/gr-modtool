@@ -232,7 +232,6 @@ class ModToolAdd(ModTool):
         if self._info['version'] == '36':
             mod_block_sep = '_'
         swig_block_magic_str = get_template('swig_block_magic', **self._info)
-        print swig_block_magic_str
         open(self._file['swig'], 'a').write(swig_block_magic_str)
         include_str = '#include "%s%s%s.h"' % (
                 self._info['modname'],
