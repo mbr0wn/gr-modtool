@@ -1,8 +1,29 @@
+#
+# Copyright 2013 Free Software Foundation, Inc.
+#
+# This file is part of GNU Radio
+#
+# GNU Radio is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# GNU Radio is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GNU Radio; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 51 Franklin Street,
+# Boston, MA 02110-1301, USA.
+#
 ''' A parser for blocks written in C++ '''
 import re
 import sys
 
-### Parser for CC blocks ####################################################
+
+### CC block parser ##########################################################
 def dummy_translator(the_type, default_v=None):
     """ Doesn't really translate. """
     return the_type
@@ -102,12 +123,13 @@ class ParserCCBlock(object):
                 if not in_string:
                     if c[i] == ')':
                         if parens_count == 0:
-                            if read_state == 'type':
+                            if read_state == 'type' and len(this_type):
                                 raise ValueError(
                                         'Found closing parentheses before finishing last argument (this is how far I got: %s)'
                                         % str(param_list)
                                 )
-                            param_list.append((this_type, this_name, this_defv))
+                            if len(this_type):
+                                param_list.append((this_type, this_name, this_defv))
                             end_of_list = True
                             break
                         else:
